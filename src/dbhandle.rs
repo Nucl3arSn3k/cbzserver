@@ -1,6 +1,6 @@
 use rusqlite::{Connection, Result};
 
-fn initialize_db() -> Result<Connection> {
+pub fn initialize_db() -> Result<Connection> {
     let conn = Connection::open("users.db")?;
     
     conn.execute(
