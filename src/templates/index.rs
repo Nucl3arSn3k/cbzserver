@@ -16,7 +16,7 @@ fn LoginPage<G: Html>(cx: Scope) -> View<G> {
             return;
         }
         
-        // In a real app, you'd handle authentication here
+        // In a real app, you'd handle authentication here. Will set up SQLITE db for auth later
         if *username.get() == "name" && *password.get() == "blarch" { //have to dereference to get str
             // Perseus provides utilities for client-side navigation
             
@@ -67,7 +67,7 @@ fn LoginPage<G: Html>(cx: Scope) -> View<G> {
 fn head(cx: Scope) -> View<SsrNode> {
     view! { cx,
         title { "Login - My App" }
-        link(rel="stylesheet", href="/static/styles.css")
+        link(rel="stylesheet", href="/static/styles.css", rel="stylesheet", type="text/css")
     }
 }
 
