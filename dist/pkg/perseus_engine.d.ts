@@ -6,21 +6,19 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly main: (a: number, b: number) => number;
-  readonly __wbindgen_export_0: WebAssembly.Table;
   readonly __wbindgen_exn_store: (a: number) => void;
-  readonly __externref_table_alloc: () => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbindgen_export_6: WebAssembly.Table;
-  readonly closure208_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure212_externref_shim: (a: number, b: number, c: any) => void;
-  readonly _dyn_core__ops__function__Fn_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__he809008748cdd2b5: (a: number, b: number) => void;
-  readonly closure210_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure376_externref_shim_multivalue_shim: (a: number, b: number, c: any) => [number, number];
-  readonly __externref_table_dealloc: (a: number) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h30860bf716998853: (a: number, b: number) => void;
-  readonly closure432_externref_shim: (a: number, b: number, c: any) => void;
+  readonly __wbindgen_export_4: WebAssembly.Table;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h0fe668be1fa1e429: (a: number, b: number, c: number) => void;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h62fbd9da1937132a: (a: number, b: number, c: number) => void;
+  readonly _dyn_core__ops__function__Fn_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h8c57886a227e4a1c: (a: number, b: number) => void;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__he7af4d8fec5b2457: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__ha8d2fc8736b41f00: (a: number, b: number, c: number, d: number) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hc770e93cdc6c45b9: (a: number, b: number) => void;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h446bd8bf0f8da276: (a: number, b: number, c: number) => void;
   readonly __wbindgen_start: () => void;
 }
 

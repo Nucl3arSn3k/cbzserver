@@ -1,5 +1,5 @@
 mod templates;
-
+mod components;
 use perseus::prelude::*;
 
 #[perseus::main(perseus_axum::dflt_server)]
