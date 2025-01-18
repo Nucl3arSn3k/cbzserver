@@ -27,6 +27,8 @@ fn LoginPage<G: Html>(cx: Scope) -> View<G> {
     };
 
     view! { cx,
+
+       
         div(class="container") {
             h1 { "Login" }
             form(on:submit=handle_submit, class="login-form") {
@@ -67,7 +69,8 @@ fn LoginPage<G: Html>(cx: Scope) -> View<G> {
 fn head(cx: Scope) -> View<SsrNode> {
     view! { cx,
         title { "Login - My App" }
-        link(rel="stylesheet", href="/static/styles.css", rel="stylesheet", type="text/css")
+        //link(rel="stylesheet", href="/static/styles.css", rel="stylesheet", type="text/css")
+        link(rel="stylesheet", href="https://unpkg.com/sakura.css/css/sakura-dark.css", type="text/css")
     }
 }
 
