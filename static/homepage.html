@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Homepage</title>
+    <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura-dark.css" type="text/css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            max-width: none;
+        }
+        .upper-div {
+            min-height: 10vh;
+            background-color: #222222;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .lower-div {
+            min-height: 90vh;
+            background-color: #4a4a4a;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .content-container {
+            max-width: 38em;
+            width: 100%;
+            margin: 0 auto;
+        }
+        /* Preserve Sakura's text styling while allowing full-width divs */
+        h1, h2, h3, p {
+            color: #c9c9c9;
+        }
+        /* Ensure proper contrast for the lower div */
+        .lower-div h1,
+        .lower-div h2,
+        .lower-div h3,
+        .lower-div p {
+            color: #ffffff;
+        }
+        /* Navigation styling */
+        .nav-link {
+            color: #ffffff;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border: 1px solid #ffffff;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        .nav-link:hover {
+            background-color: #ffffff;
+            color: #222222;
+            border-bottom: 1px solid #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="upper-div">
+        <div class="content-container">
+            <a href="/settings.html" class="nav-link">Settings</a>
+        </div>
+    </div>
+   
+    <div class="lower-div">
+        <div class="content-container">
+            <h2>Homepage</h2>
+            <p>This is the secondary content area with a grey theme. It takes up 90% of the viewport height.</p>
+        </div>
+    </div>
