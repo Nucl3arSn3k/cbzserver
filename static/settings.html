@@ -3,68 +3,7 @@
 <head>
     <title>Two Division Layout</title>
     <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura-dark.css" type="text/css">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            max-width: none;
-        }
-        .upper-div {
-            min-height: 10vh;
-            background-color: #222222;
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-        .lower-div {
-            min-height: 90vh;
-            background-color: #4a4a4a;
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .content-container {
-            max-width: 38em;
-            width: 100%;
-            margin: 0 auto;
-        }
-        h1, h2, h3, p {
-            color: #c9c9c9;
-        }
-        .lower-div h1,
-        .lower-div h2,
-        .lower-div h3,
-        .lower-div p {
-            color: #ffffff;
-        }
-        .nav-link {
-            color: #ffffff;
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border: 1px solid #ffffff;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-        }
-        .nav-link:hover {
-            background-color: #ffffff;
-            color: #222222;
-            border-bottom: 1px solid #ffffff;
-        }
-        .folder-form {
-            margin: 2rem 0;
-            width: 100%;
-        }
-        .path-input {
-            width: 100%;
-            margin-bottom: 1rem;
-        }
-        .hidden-input {
-            display: none;
-        }
-    </style>
+    <!-- Your existing styles here -->
 </head>
 <body>
     <div class="upper-div">
@@ -78,19 +17,18 @@
             <h2>Select Folder Path</h2>
             <form class="folder-form" action="/submit_folder" method="post">
                 <input type="text" id="folderPath" name="folder_path" class="path-input" readonly>
-                <input type="file" id="folderInput" class="hidden-input" webkitdirectory directory onchange="getfolder(event)">
+                <input type="file" id="folderInput" class="hidden-input" webkitdirectory directory>
                 <button type="button" onclick="document.getElementById('folderInput').click()">Choose Folder</button>
                 <button type="submit">Submit Path</button>
             </form>
         </div>
     </div>
-
-    <script type="text/javascript">
-        function getfolder(e) {
-            var files = e.target.files;
-            var path = files[0].webkitRelativePath;
-            var Folder = path.split("/");
-            document.getElementById('folderPath').value = Folder[0];
-        }
+    
+    <script type="module">
+        import { getfolder } from './folderHandler.js';
+        
+        // Add event listener after import
+        document.getElementById('folderInput').addEventListener('change', getfolder);
     </script>
 </body>
+</html>
