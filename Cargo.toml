@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rocket = "0.5"
+actix-web = "4"
+serde = { version = "1.0.217", features = ["derive"] }
 unrar = "0.5.3"
 tempfile = "3.7.0"
 rand = "0.3.14"

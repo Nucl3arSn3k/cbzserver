@@ -1,34 +1,66 @@
-use rocket::{
-    form::Form,  // Changed this import
-    fs::{relative, FileServer},
-    response::Redirect,
-};
-use std::path::{Path, PathBuf};
-mod cbzlogic;
+use std::string;
 
-#[macro_use]
-extern crate rocket;
-
-#[derive(FromForm)]
-struct FolderPath {
-    folder_path: String,
+use actix_web::HttpRequest;
+use actix_web::{get, post,web::Json, HttpResponse, App, HttpServer};
+use serde::Serialize;
+use serde::Deserialize;
+mod cbztools;
+#[derive(Serialize)]
+struct Book {
+    id: i32,
+    title: String,
+    author: String,
 }
 
-#[get("/")]
-fn index() -> Redirect {
-    Redirect::to("/login.html")
+#[derive(Serialize)]
+struct Library {
+    books: Vec<Book>,
 }
 
-// Added data parameter
-#[post("/submit_folder", data = "<form>")]
-fn submit_folder(form: Form<FolderPath>) -> String {
-    println!("Folder path is {}", form.folder_path);  // Use form.folder_path instead of form.value
-    form.folder_path.clone()
+
+
+#[derive(Deserialize)]
+struct Login{
+    username: String,
+    password: String,
+
 }
 
-#[launch]
-fn rocket() -> _ {
-    rocket::build()
-        .mount("/", routes![index, submit_folder])  // Added submit_folder to routes
-        .mount("/", FileServer::from("static"))
+
+#[derive(Serialize)]
+struct LoginPerms{
+    sucess: bool,
+    token: Option<String>,
+
+
+}
+
+
+
+
+#[post("/api/login")]
+async fn logincheck(credentials: Json<Login>) -> HttpResponse {
+    if credentials.username == "blarch" && credentials.password == "password" {
+        HttpResponse::Ok().json(LoginPerms {
+            sucess: true,
+            token: Some("example_token".to_string())
+        })
+    } else {
+        HttpResponse::Unauthorized().json(LoginPerms{
+            sucess: false,
+            token: None
+        })
+    }
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    HttpServer::new(|| {
+        App::new()
+            
+            .service(logincheck)
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
 }
