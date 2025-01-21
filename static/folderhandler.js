@@ -1,16 +1,3 @@
-// folderHandler.js
-export function requestFileSystem() {
-    return new Promise((resolve, reject) => {
-        window.requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem;
-        window.requestFileSystem(
-            window.TEMPORARY,
-            1024*1024,
-            resolve,
-            reject
-        );
-    });
-}
-
 export async function getfolder(e) {
     try {
         const fs = await requestFileSystem();
