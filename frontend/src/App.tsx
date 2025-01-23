@@ -4,6 +4,7 @@ import { Router, Route } from "@solidjs/router"
 import { ParentProps } from 'solid-js' // Add this import
 import './App.css'
 import Login from "./pages/Login"
+import Settings from "./pages/Settings"
 
 interface Library {
   series: string[]
@@ -53,6 +54,7 @@ if (root) {
     <Router root={App}>
       <Route path="/" component={Login} />
       <Route path="/login" component={ComicList} />
+      <Route path="/settings" component={Settings} />
     </Router>
   ), root)
 }
