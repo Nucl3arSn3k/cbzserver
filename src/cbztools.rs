@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 use tempfile::{tempdir, TempDir};
 use unrar::Archive;
 use zip::read::ZipArchive;
+
+#[derive(Debug)]
 pub struct cHold{
     name: String,
     filepath:PathBuf,

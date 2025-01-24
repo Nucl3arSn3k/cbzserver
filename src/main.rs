@@ -2,9 +2,13 @@ use std::string;
 
 use actix_web::HttpRequest;
 use actix_web::{get, post,web::Json, HttpResponse, App, HttpServer};
+use cbztools::catalog_dir;
+use matchlogic::match_logic;
+use std::path::{Path, PathBuf};
 use serde::Serialize;
 use serde::Deserialize;
 mod cbztools;
+mod matchlogic;
 #[derive(Deserialize)]
 struct FilePath{
     filepath:String,
@@ -24,7 +28,22 @@ struct Login{
 struct LoginPerms{
     sucess: bool,
     token: Option<String>,
+}
 
+
+
+
+#[get("/api/library")]
+async fn library_send() -> HttpResponse{
+    let val = catalog_dir(Path::new("I:\\Comics"));
+    println!("{:?}",val);
+
+
+
+    HttpResponse::Ok().json(LoginPerms {
+        sucess: true,
+        token: Some("example_token".to_string())
+    })
 
 }
 
@@ -50,8 +69,8 @@ async fn logincheck(credentials: Json<Login>) -> HttpResponse {
 
 #[post("/api/fsub")]
 async fn foldercheck(creds: Json<FilePath>) -> HttpResponse { //
-    println!("{}",creds.filepath);
-
+    println!("{}",&creds.filepath);
+    match_logic(&creds.filepath);
 
     HttpResponse::Unauthorized().json(LoginPerms{
         sucess: false,
