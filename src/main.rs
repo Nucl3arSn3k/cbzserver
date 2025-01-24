@@ -5,18 +5,11 @@ use actix_web::{get, post,web::Json, HttpResponse, App, HttpServer};
 use serde::Serialize;
 use serde::Deserialize;
 mod cbztools;
-#[derive(Serialize)]
-struct Book {
-    id: i32,
-    title: String,
-    author: String,
-}
+#[derive(Deserialize)]
+struct FilePath{
+    filepath:String,
 
-#[derive(Serialize)]
-struct Library {
-    books: Vec<Book>,
 }
-
 
 
 #[derive(Deserialize)]
@@ -53,11 +46,26 @@ async fn logincheck(credentials: Json<Login>) -> HttpResponse {
     }
 }
 
+
+
+#[post("/api/fsub")]
+async fn foldercheck(creds: Json<FilePath>) -> HttpResponse { //
+    println!("{}",creds.filepath);
+
+
+    HttpResponse::Unauthorized().json(LoginPerms{
+        sucess: false,
+        token: None
+    })
+
+
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
-            
+            .service(foldercheck)
             .service(logincheck)
     })
     .bind(("127.0.0.1", 8080))?
