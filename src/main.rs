@@ -2,11 +2,12 @@ use std::string;
 
 use actix_web::HttpRequest;
 use actix_web::{get, post,web::Json, HttpResponse, App, HttpServer};
-use cbztools::catalog_dir;
+use cbztools::{cHold, catalog_dir};
 use matchlogic::match_logic;
 use std::path::{Path, PathBuf};
 use serde::Serialize;
 use serde::Deserialize;
+use serde_json;
 mod cbztools;
 mod matchlogic;
 #[derive(Deserialize)]
@@ -30,23 +31,24 @@ struct LoginPerms{
     token: Option<String>,
 }
 
-
+#[derive(Serialize)]
+struct Library {
+    series: Vec<cHold>
+}
 
 
 #[get("/api/library")]
-async fn library_send() -> HttpResponse{
+async fn library_send() -> HttpResponse {
     let val = catalog_dir(Path::new("I:\\Comics"));
-    println!("{:?}",val);
-
-
-
-    HttpResponse::Ok().json(LoginPerms {
-        sucess: true,
-        token: Some("example_token".to_string())
-    })
-
+    
+    // Print the serialized version
+    match serde_json::to_string_pretty(&val) {
+        Ok(serialized) => println!("Serialized data:\n{}", serialized),
+        Err(e) => println!("Serialization error: {}", e),
+    }
+    
+    HttpResponse::Ok().json(val)
 }
-
 
 
 
@@ -80,12 +82,18 @@ async fn foldercheck(creds: Json<FilePath>) -> HttpResponse { //
 
 }
 
+
+
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    println!("WOW");
+    //test_catalog().await;
     HttpServer::new(|| {
         App::new()
             .service(foldercheck)
             .service(logincheck)
+            .service(library_send)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

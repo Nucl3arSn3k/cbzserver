@@ -7,7 +7,9 @@ import Login from "./pages/Login"
 import Settings from "./pages/Settings"
 
 interface Library {
-  series: string[]
+  name: string
+  filepath: string
+  dirornot: boolean
 }
 
 // Added ParentProps type to App

@@ -1,25 +1,22 @@
-
-use std::{env, result};
+use serde::Serialize;
 use std::fs::{self, File, ReadDir};
 use std::path::{Path, PathBuf};
+use std::{env, result};
 use tempfile::{tempdir, TempDir};
 use unrar::Archive;
 use zip::read::ZipArchive;
-
-#[derive(Debug)]
-pub struct cHold{
+#[derive(Debug, Serialize, Clone)]
+pub struct cHold {
     name: String,
-    filepath:PathBuf,
-    dirornot:bool, //true if dir,false if not
+    filepath: PathBuf,
+    dirornot: bool, //true if dir,false if not
 } //Shove struct instances into a vec and then shove that to templating engine. In terms of cover display,unrar every single one that's a .cbz and .cbr file and display
-//the first one with a image extension as thumb for whatever template
-struct templategen{
+  //the first one with a image extension as thumb for whatever template
+struct templategen {
     name: String,
-    filepath:PathBuf,
-    cover:PathBuf,
-
+    filepath: PathBuf,
+    cover: PathBuf,
 }
-
 
 #[cfg(target_os = "windows")]
 fn get_app_data_dir() -> PathBuf {
@@ -43,35 +40,185 @@ fn get_app_data_dir() -> PathBuf {
 }
 
 pub fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
+    //Should I just provide thumbs here?
     let mut val: Vec<cHold> = Vec::new();
-    let result_read = match fs::read_dir(dir_path){
+    let result_read = match fs::read_dir(dir_path) {
         Ok(entries) => entries,
         Err(_) => return val,
     };
 
-    for entry in result_read{
-        let result2 = match entry{
+    for entry in result_read {
+        let result2 = match entry {
             Ok(direntry) => direntry,
             Err(_) => return val,
         };
-        let name_string = result2.file_name().to_string_lossy().to_string();  
+        let name_string = result2.file_name().to_string_lossy().to_string();
         let path = result2.path();
-        if path.is_dir(){
-            let lochold = cHold{name:name_string,filepath:path.clone(), dirornot:true};
+        if path.is_dir() {
+            let lochold = cHold {
+                name: name_string,
+                filepath: path.clone(),
+                dirornot: true,
+            };
             val.push(lochold);
             let pathv2: &Path = path.as_path();
-            catalog_dir(pathv2);
+            let v2al = catalog_dir(pathv2);
+            val.extend(v2al);
+        } else {
+            //Check filetyope here
+            if let Some(extension) = path.extension().and_then(std::ffi::OsStr::to_str) {
+                match extension {
+                    "cbz" => {
+                        let lochold = cHold {
+                            name: name_string,
+                            filepath: path.clone(),
+                            dirornot: false,
+                        };
+                        val.push(lochold);
+                    }
+
+                    "cbr" => {
+                        let lochold = cHold {
+                            name: name_string,
+                            filepath: path.clone(),
+                            dirornot: false,
+                        };
+                        val.push(lochold);
+                    }
+
+                    _ => {
+
+                        //Unsupported extension
+                    }
+                }
+            }
         }
-        else{
-            let lochold = cHold{name:name_string,filepath:path.clone(), dirornot:false};
-            val.push(lochold);
-
-
-
-        }
-
-
     }
 
     val
+}
+
+
+
+pub fn compression_handler(file_path: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let mut combined_folder_name = String::new(); 
+
+    if let Some(file_name) = file_path.file_name() {
+        if let Some(file_name_str) = file_name.to_str() {
+            println!("Filename: {}", file_name_str);
+            let slice: &str = &file_name_str[0..file_name_str.len() - 4];
+
+            // Update the variable inside the if block
+            combined_folder_name = format!("{}-{}", "comictemp", slice); //Potential solution could be to remove comictemp and just look for a folder with the same name as parent,however,that MAY not always happen,so best not to count on it
+        } else {
+            println!("Filename is not valid UTF-8.");
+        }
+    } else {
+        println!("No filename found in the path.");
+    }
+
+    if let Some(extension) = file_path.extension().and_then(std::ffi::OsStr::to_str) {
+        match extension {
+            "cbz" => {
+                println!("Processing a .zip file: {:?}", file_path);
+                let temp_dir = get_app_data_dir();
+                let mut temp_dir_path = temp_dir.clone();
+
+                temp_dir_path.push(&combined_folder_name);
+                println!("{:?}", temp_dir_path);
+                // Open the ZIP file for reading
+                let file = File::open(file_path)?;
+                
+
+                // Create the output directory if it doesn't exist
+                fs::create_dir_all(&temp_dir_path)?;
+
+                // Extract the ZIP archive to the output directory
+                let mut zip_archive = ZipArchive::new(file)?;
+                if let Err(err) = zip_archive.extract(&temp_dir_path) {
+                    // Handle the error here (e.g., log it)
+                    println!("Error extracting ZIP archive: {}", err);
+                    return Err(err.into());
+                }
+                recursive_file_mover(&temp_dir_path, &temp_dir_path);
+                return Ok(temp_dir_path.clone());
+            }
+            "cbr" => {
+                println!("Processing an .rar file: {:?}", file_path);
+                let temp_dir = get_app_data_dir();
+                let mut temp_dir_path = temp_dir.clone();
+                let parts: Vec<&str> = combined_folder_name.split('.').collect();
+                let file_name_without_extension = "";
+                let prefix = "comictemp-";
+                let stripped_prefix: Option<&str>;
+
+                temp_dir_path.push(combined_folder_name);
+                let file = File::open(file_path).expect("Failed to open the file.");
+                println!("{:?}", file_name_without_extension);
+                println!("{:?}", temp_dir_path);
+                // Open the RAR archive for processing
+                let mut archive = Archive::new(file_path).open_for_processing().unwrap();
+                // Process each entry in the archive
+                while let Some(header) = archive.read_header()? {
+                    archive = if header.entry().is_file() {
+                        let entry_path = header.entry().filename.to_string_lossy().to_string();
+                        // Split the entry path into components and remove the nested folder
+                        let entry_components: Vec<&str> = entry_path.split('/').collect();
+                        let file_name = entry_components.last().unwrap_or(&"");
+
+                        let output_file_path = temp_dir_path.join(file_name);
+                        println!("{:?}", output_file_path);
+                        header.extract_with_base(&temp_dir_path)?
+                    } else {
+                        header.skip()?
+                    };
+                }
+                let parent_folder = temp_dir_path.clone();
+                recursive_file_mover(&parent_folder, &parent_folder);
+
+                return Ok(temp_dir_path.clone());
+                
+            }
+            _ => {
+                println!("Unsupported file extension: {:?}", file_path);
+                // Add actions for unsupported file extensions if needed
+                return Err("Unsupported file extension".into());
+            }
+        }
+    } else {
+        println!("No file extension found for {:?}", file_path);
+        return Err("Unsupported file extension".into());
+    }
+}
+
+fn recursive_file_mover(folder_path: &Path, destination_folder: &Path) {
+    //if the cbz or cbr file is nested in another folder,this just grabs all the files and puts them in the newly created folder
+    if let Ok(entries) = fs::read_dir(folder_path) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let entry_path = entry.path();
+                if entry_path.is_dir() { //If it's a dir,recursion happens
+                    recursive_file_mover(&entry_path, destination_folder)
+                } 
+                else {
+                    let file_name = entry_path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
+
+                    let destination_path = destination_folder.join(&file_name);  //Fix XML handling
+                    if let Err(err) = fs::rename(&entry_path, &destination_path) {
+                        println!("Failed to move {:?}: {}", &entry_path, err);
+                    } else {
+                        println!("Moved {:?} to {:?}", &entry_path, &destination_path);  
+                    }
+                    //println!("Moved {:?} to {:?}", &entry_path, &destination_path);
+                }
+            }
+        }
+        //fs::remove_dir(folder_path);
+    } else {
+        println!("Failed to read folder.");
+    }
 }

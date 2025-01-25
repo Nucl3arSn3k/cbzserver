@@ -355,6 +355,7 @@ dependencies = [
  "actix-web",
  "rand 0.3.23",
  "serde",
+ "serde_json",
  "sysinfo",
  "tempfile",
  "unrar",
