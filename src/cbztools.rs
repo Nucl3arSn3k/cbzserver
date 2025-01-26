@@ -246,6 +246,7 @@ pub fn compression_handler(
 fn recursive_file_mover(folder_path: &Path, destination_folder: &Path) {
     //if the cbz or cbr file is nested in another folder,this just grabs all the files and puts them in the newly created folder
     if let Ok(entries) = fs::read_dir(folder_path) {
+        println!("Recursive file mover triggered");
         for entry in entries {
             if let Ok(entry) = entry {
                 let entry_path = entry.path();

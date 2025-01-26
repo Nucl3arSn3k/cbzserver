@@ -41,11 +41,7 @@ function ComicList() {
           <div class="series-item">{series}</div>
         ))}
       </div>
-      <div class="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count()}
-        </button>
-      </div>
+      
     </>
   )
 }
