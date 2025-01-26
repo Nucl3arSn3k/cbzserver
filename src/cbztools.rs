@@ -9,6 +9,7 @@ use zip::read::ZipArchive;
 pub struct cHold {
     name: String,
     filepath: PathBuf,
+    cover_path: Option<PathBuf>,
     dirornot: bool, //true if dir,false if not
 } //Shove struct instances into a vec and then shove that to templating engine. In terms of cover display,unrar every single one that's a .cbz and .cbr file and display
   //the first one with a image extension as thumb for whatever template
@@ -39,6 +40,27 @@ fn get_app_data_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("/fallback/path"))
 }
 
+pub fn delete_all(dir_path: &PathBuf) -> i32 {
+    // just going for C function conventions here,because lazy
+    let result_read = match fs::read_dir(dir_path) {
+        Ok(entries) => entries,
+        Err(_) => return -1,
+    };
+
+    for x in result_read.skip(1) {
+        let v = x.unwrap();
+
+        let x = fs::remove_file(v.path());
+
+        match x {
+            Ok(_) => println!("File removed"),
+            Err(_) => return -1,
+        }
+    }
+
+    0
+}
+
 pub fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
     //Should I just provide thumbs here?
     let mut val: Vec<cHold> = Vec::new();
@@ -58,6 +80,7 @@ pub fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
             let lochold = cHold {
                 name: name_string,
                 filepath: path.clone(),
+                cover_path: None,
                 dirornot: true,
             };
             val.push(lochold);
@@ -69,18 +92,37 @@ pub fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
             if let Some(extension) = path.extension().and_then(std::ffi::OsStr::to_str) {
                 match extension {
                     "cbz" => {
+                        let va2l = compression_handler(&path, false);
+                        let val3 = match va2l {
+                            Ok(path_buf) => path_buf,
+                            Err(e) => {
+                                println!("Error: {}", e);
+                                continue;  // Use continue instead of break to skip this file
+                            }
+                        };
+                        
                         let lochold = cHold {
                             name: name_string,
                             filepath: path.clone(),
+                            cover_path: Some(val3),  // Now val3 is PathBuf, not Result<PathBuf>
                             dirornot: false,
                         };
                         val.push(lochold);
                     }
 
                     "cbr" => {
+                        let va2l = compression_handler(&path, false);
+                        let val3 = match va2l {
+                            Ok(s) => s,
+                            Err(e) => {
+                                println!("Error: {}", e);
+                                break;
+                            }
+                         };
                         let lochold = cHold {
                             name: name_string,
                             filepath: path.clone(),
+                            cover_path: Some(val3.clone()),
                             dirornot: false,
                         };
                         val.push(lochold);
@@ -98,10 +140,12 @@ pub fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
     val
 }
 
-
-
-pub fn compression_handler(file_path: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let mut combined_folder_name = String::new(); 
+pub fn compression_handler(
+    file_path: &Path,
+    full_p: bool,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    //adding bool as param to only extract first photo,return that path,and have it as part of the overall struct so I can have thumbnails that I populate
+    let mut combined_folder_name = String::new();
 
     if let Some(file_name) = file_path.file_name() {
         if let Some(file_name_str) = file_name.to_str() {
@@ -128,7 +172,6 @@ pub fn compression_handler(file_path: &Path) -> Result<PathBuf, Box<dyn std::err
                 println!("{:?}", temp_dir_path);
                 // Open the ZIP file for reading
                 let file = File::open(file_path)?;
-                
 
                 // Create the output directory if it doesn't exist
                 fs::create_dir_all(&temp_dir_path)?;
@@ -141,6 +184,10 @@ pub fn compression_handler(file_path: &Path) -> Result<PathBuf, Box<dyn std::err
                     return Err(err.into());
                 }
                 recursive_file_mover(&temp_dir_path, &temp_dir_path);
+                if full_p == false {
+                    let x = delete_all(&temp_dir_path);
+                    println!("{}", x);
+                }
                 return Ok(temp_dir_path.clone());
             }
             "cbr" => {
@@ -176,8 +223,13 @@ pub fn compression_handler(file_path: &Path) -> Result<PathBuf, Box<dyn std::err
                 let parent_folder = temp_dir_path.clone();
                 recursive_file_mover(&parent_folder, &parent_folder);
 
+                if full_p == false {
+                    let x = delete_all(&temp_dir_path);
+
+                    println!("{}", x);
+                }
+
                 return Ok(temp_dir_path.clone());
-                
             }
             _ => {
                 println!("Unsupported file extension: {:?}", file_path);
@@ -197,21 +249,29 @@ fn recursive_file_mover(folder_path: &Path, destination_folder: &Path) {
         for entry in entries {
             if let Ok(entry) = entry {
                 let entry_path = entry.path();
-                if entry_path.is_dir() { //If it's a dir,recursion happens
+                if entry_path.is_dir() {
+                    //If it's a dir,recursion happens
                     recursive_file_mover(&entry_path, destination_folder)
-                } 
-                else {
+                } else {
                     let file_name = entry_path
                         .file_name()
                         .unwrap_or_default()
                         .to_string_lossy()
                         .to_string();
-
-                    let destination_path = destination_folder.join(&file_name);  //Fix XML handling
+                    //Slice last 3 chars for ext. If it's not (standard set of image )
+                    let length = file_name.len();
+                    let f_ext = &file_name[length - 3..length];
+                    //println!("{}",f_ext);
+                    if !["jpg", "jpeg", "png", "gif", "webp", "bmp"].contains(&f_ext) {
+                        //Very weird edge case where XML files are there,probably shouldn't extract them.
+                        //Will add something later for XML metadata handling
+                        continue; //skip to next loop if not a image
+                    }
+                    let destination_path = destination_folder.join(&file_name); //Fix XML handling
                     if let Err(err) = fs::rename(&entry_path, &destination_path) {
                         println!("Failed to move {:?}: {}", &entry_path, err);
                     } else {
-                        println!("Moved {:?} to {:?}", &entry_path, &destination_path);  
+                        println!("Moved {:?} to {:?}", &entry_path, &destination_path);
                     }
                     //println!("Moved {:?} to {:?}", &entry_path, &destination_path);
                 }
