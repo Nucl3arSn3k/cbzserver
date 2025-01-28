@@ -162,85 +162,86 @@ pub fn compression_handler(
     }
 
     if let Some(extension) = file_path.extension().and_then(std::ffi::OsStr::to_str) {
-        match extension {
-            "cbz" => {
-                println!("Processing a .zip file: {:?}", file_path);
-                let temp_dir = get_app_data_dir();
-                let mut temp_dir_path = temp_dir.clone();
-
-                temp_dir_path.push(&combined_folder_name);
-                println!("{:?}", temp_dir_path);
-                // Open the ZIP file for reading
-                let file = File::open(file_path)?;
-
-                // Create the output directory if it doesn't exist
-                fs::create_dir_all(&temp_dir_path)?;
-
-                // Extract the ZIP archive to the output directory
-                let mut zip_archive = ZipArchive::new(file)?;
-                if let Err(err) = zip_archive.extract(&temp_dir_path) {
-                    // Handle the error here (e.g., log it)
-                    println!("Error extracting ZIP archive: {}", err);
-                    return Err(err.into());
-                }
-                recursive_file_mover(&temp_dir_path, &temp_dir_path);
-                if full_p == false {
-                    let x = delete_all(&temp_dir_path);
-                    println!("{}", x);
-                }
-                return Ok(temp_dir_path.clone());
+        let val = match fs::read(file_path) {
+            Ok(vec) => vec,
+            Err(e) => {
+                println!("File could not be opened: {}", e);
+                return Err(Box::new(e));
             }
-            "cbr" => {
-                println!("Processing an .rar file: {:?}", file_path);
-                let temp_dir = get_app_data_dir();
-                let mut temp_dir_path = temp_dir.clone();
-                let parts: Vec<&str> = combined_folder_name.split('.').collect();
-                let file_name_without_extension = "";
-                let prefix = "comictemp-";
-                let stripped_prefix: Option<&str>;
+        };
 
-                temp_dir_path.push(combined_folder_name);
-                let file = File::open(file_path).expect("Failed to open the file.");
-                println!("{:?}", file_name_without_extension);
-                println!("{:?}", temp_dir_path);
-                // Open the RAR archive for processing
-                let mut archive = Archive::new(file_path).open_for_processing().unwrap();
-                // Process each entry in the archive
-                while let Some(header) = archive.read_header()? {
-                    archive = if header.entry().is_file() {
-                        let entry_path = header.entry().filename.to_string_lossy().to_string();
-                        // Split the entry path into components and remove the nested folder
-                        let entry_components: Vec<&str> = entry_path.split('/').collect();
-                        let file_name = entry_components.last().unwrap_or(&"");
+        let slice = &val[..7];
+        println!("{:?}", slice);
+        if (slice.starts_with(&[0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00]))
+            || (slice == [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00])
+        {
+            println!("RAR file");
+            println!("Processing an .rar file: {:?}", file_path);
+            let temp_dir = get_app_data_dir();
+            let mut temp_dir_path = temp_dir.clone();
+            let parts: Vec<&str> = combined_folder_name.split('.').collect();
+            let file_name_without_extension = "";
+            let prefix = "comictemp-";
+            let stripped_prefix: Option<&str>;
 
-                        let output_file_path = temp_dir_path.join(file_name);
-                        println!("{:?}", output_file_path);
-                        header.extract_with_base(&temp_dir_path)?
-                    } else {
-                        header.skip()?
-                    };
-                }
-                let parent_folder = temp_dir_path.clone();
-                recursive_file_mover(&parent_folder, &parent_folder);
+            temp_dir_path.push(combined_folder_name);
+            let file = File::open(file_path).expect("Failed to open the file.");
+            println!("{:?}", file_name_without_extension);
+            println!("{:?}", temp_dir_path);
+            // Open the RAR archive for processing
+            let mut archive = Archive::new(file_path).open_for_processing().unwrap();
+            // Process each entry in the archive
+            while let Some(header) = archive.read_header()? {
+                archive = if header.entry().is_file() {
+                    let entry_path = header.entry().filename.to_string_lossy().to_string();
+                    // Split the entry path into components and remove the nested folder
+                    let entry_components: Vec<&str> = entry_path.split('/').collect();
+                    let file_name = entry_components.last().unwrap_or(&"");
 
-                if full_p == false {
-                    let x = delete_all(&temp_dir_path);
-
-                    println!("{}", x);
-                }
-
-                return Ok(temp_dir_path.clone());
+                    let output_file_path = temp_dir_path.join(file_name);
+                    println!("{:?}", output_file_path);
+                    header.extract_with_base(&temp_dir_path)?
+                } else {
+                    header.skip()?
+                };
             }
-            _ => {
-                println!("Unsupported file extension: {:?}", file_path);
-                // Add actions for unsupported file extensions if needed
-                return Err("Unsupported file extension".into());
+            let parent_folder = temp_dir_path.clone();
+            recursive_file_mover(&parent_folder, &parent_folder);
+
+            return Ok(temp_dir_path.clone());
+        } else if (slice.starts_with(&[0x50, 0x4B, 0x03, 0x04])) {
+            println!("ZIP files");
+            println!("Processing a .zip file: {:?}", file_path);
+            let temp_dir = get_app_data_dir();
+            let mut temp_dir_path = temp_dir.clone();
+
+            temp_dir_path.push(&combined_folder_name);
+            println!("{:?}", temp_dir_path);
+            // Open the ZIP file for reading
+            let file = File::open(file_path)?;
+
+            // Create the output directory if it doesn't exist
+            fs::create_dir_all(&temp_dir_path)?;
+
+            // Extract the ZIP archive to the output directory
+            let mut zip_archive = ZipArchive::new(file)?;
+            if let Err(err) = zip_archive.extract(&temp_dir_path) {
+                // Handle the error here (e.g., log it)
+                println!("Error extracting ZIP archive: {}", err);
+                return Err(err.into());
             }
+            recursive_file_mover(&temp_dir_path, &temp_dir_path);
+            return Ok(temp_dir_path.clone());
+        } else {
+            println!("Unsupported file extension: {:?}", file_path);
+            // Add actions for unsupported file extensions if needed
+            return Err("Unsupported file extension".into());
         }
     } else {
         println!("No file extension found for {:?}", file_path);
         return Err("Unsupported file extension".into());
     }
+    
 }
 
 fn recursive_file_mover(folder_path: &Path, destination_folder: &Path) {
