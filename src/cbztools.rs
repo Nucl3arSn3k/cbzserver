@@ -97,14 +97,14 @@ pub fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
                             Ok(path_buf) => path_buf,
                             Err(e) => {
                                 println!("Error: {}", e);
-                                continue;  // Use continue instead of break to skip this file
+                                continue; // Use continue instead of break to skip this file
                             }
                         };
-                        
+
                         let lochold = cHold {
                             name: name_string,
                             filepath: path.clone(),
-                            cover_path: Some(val3),  // Now val3 is PathBuf, not Result<PathBuf>
+                            cover_path: Some(val3), // Now val3 is PathBuf, not Result<PathBuf>
                             dirornot: false,
                         };
                         val.push(lochold);
@@ -118,7 +118,7 @@ pub fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
                                 println!("Error: {}", e);
                                 break;
                             }
-                         };
+                        };
                         let lochold = cHold {
                             name: name_string,
                             filepath: path.clone(),
@@ -144,104 +144,99 @@ pub fn compression_handler(
     file_path: &Path,
     full_p: bool,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    //adding bool as param to only extract first photo,return that path,and have it as part of the overall struct so I can have thumbnails that I populate
-    let mut combined_folder_name = String::new();
+    let combined_folder_name = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|name| format!("comictemp-{}", &name[..name.len() - 4]))
+        .ok_or("Invalid filename")?;
 
-    if let Some(file_name) = file_path.file_name() {
-        if let Some(file_name_str) = file_name.to_str() {
-            println!("Filename: {}", file_name_str);
-            let slice: &str = &file_name_str[0..file_name_str.len() - 4];
+    let temp_dir = get_app_data_dir();
+    let temp_dir_path = temp_dir.join(&combined_folder_name);
+    fs::create_dir_all(&temp_dir_path)?;
 
-            // Update the variable inside the if block
-            combined_folder_name = format!("{}-{}", "comictemp", slice); //Potential solution could be to remove comictemp and just look for a folder with the same name as parent,however,that MAY not always happen,so best not to count on it
-        } else {
-            println!("Filename is not valid UTF-8.");
-        }
-    } else {
-        println!("No filename found in the path.");
-    }
+    let is_image = |ext: &str| -> bool {
+        ["jpg", "jpeg", "png", "gif", "webp", "bmp"]
+            .contains(&ext.to_lowercase().as_str())
+    };
 
-    if let Some(extension) = file_path.extension().and_then(std::ffi::OsStr::to_str) {
-        let val = match fs::read(file_path) {
-            Ok(vec) => vec,
-            Err(e) => {
-                println!("File could not be opened: {}", e);
-                return Err(Box::new(e));
+    let content = fs::read(file_path)?;
+    let slice = &content[..std::cmp::min(content.len(), 7)];
+
+    match slice {
+        // RAR signature check
+        [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00, ..] |
+        [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, ..] => {
+            println!("Processing RAR file: {:?}", file_path);
+            let mut archive = Archive::new(file_path).open_for_processing()?;
+            
+            if !full_p {
+                // Extract only first image
+                while let Some(header) = archive.read_header()? {
+                    if header.entry().is_file() {
+                        let entry_path = header.entry().filename.to_string_lossy().into_owned();
+                        let path = Path::new(&entry_path);
+                        if let Some(ext) = path.extension() {
+                            if let Some(ext_str) = ext.to_str() {
+                                if is_image(ext_str) {
+                                    let file_name = entry_path.split('/').last().unwrap_or("");
+                                    let output_path = temp_dir_path.join(file_name);
+                                    archive = header.extract_with_base(&temp_dir_path)?;
+                                    return Ok(output_path);
+                                }
+                            }
+                        }
+                    }
+                    archive = header.skip()?;
+                }
+                Err("No image found in archive".into())
+            } else {
+                // Extract everything
+                while let Some(header) = archive.read_header()? {
+                    archive = if header.entry().is_file() {
+                        let entry_path = header.entry().filename.to_string_lossy().into_owned();
+                        let file_name = entry_path.split('/').last().unwrap_or("");
+                        let output_path = temp_dir_path.join(file_name);
+                        header.extract_with_base(&temp_dir_path)?
+                    } else {
+                        header.skip()?
+                    };
+                }
+                recursive_file_mover(&temp_dir_path, &temp_dir_path);
+                Ok(temp_dir_path)
             }
-        };
-
-        let slice = &val[..7];
-        println!("{:?}", slice);
-        if (slice.starts_with(&[0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00]))
-            || (slice == [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00])
-        {
-            println!("RAR file");
-            println!("Processing an .rar file: {:?}", file_path);
-            let temp_dir = get_app_data_dir();
-            let mut temp_dir_path = temp_dir.clone();
-            let parts: Vec<&str> = combined_folder_name.split('.').collect();
-            let file_name_without_extension = "";
-            let prefix = "comictemp-";
-            let stripped_prefix: Option<&str>;
-
-            temp_dir_path.push(combined_folder_name);
-            let file = File::open(file_path).expect("Failed to open the file.");
-            println!("{:?}", file_name_without_extension);
-            println!("{:?}", temp_dir_path);
-            // Open the RAR archive for processing
-            let mut archive = Archive::new(file_path).open_for_processing().unwrap();
-            // Process each entry in the archive
-            while let Some(header) = archive.read_header()? {
-                archive = if header.entry().is_file() {
-                    let entry_path = header.entry().filename.to_string_lossy().to_string();
-                    // Split the entry path into components and remove the nested folder
-                    let entry_components: Vec<&str> = entry_path.split('/').collect();
-                    let file_name = entry_components.last().unwrap_or(&"");
-
-                    let output_file_path = temp_dir_path.join(file_name);
-                    println!("{:?}", output_file_path);
-                    header.extract_with_base(&temp_dir_path)?
-                } else {
-                    header.skip()?
-                };
-            }
-            let parent_folder = temp_dir_path.clone();
-            recursive_file_mover(&parent_folder, &parent_folder);
-
-            return Ok(temp_dir_path.clone());
-        } else if (slice.starts_with(&[0x50, 0x4B, 0x03, 0x04])) {
-            println!("ZIP files");
-            println!("Processing a .zip file: {:?}", file_path);
-            let temp_dir = get_app_data_dir();
-            let mut temp_dir_path = temp_dir.clone();
-
-            temp_dir_path.push(&combined_folder_name);
-            println!("{:?}", temp_dir_path);
-            // Open the ZIP file for reading
+        },
+        // ZIP signature check
+        [0x50, 0x4B, 0x03, 0x04, ..] => {
+            println!("Processing ZIP file: {:?}", file_path);
             let file = File::open(file_path)?;
+            let mut archive = ZipArchive::new(file)?;
 
-            // Create the output directory if it doesn't exist
-            fs::create_dir_all(&temp_dir_path)?;
-
-            // Extract the ZIP archive to the output directory
-            let mut zip_archive = ZipArchive::new(file)?;
-            if let Err(err) = zip_archive.extract(&temp_dir_path) {
-                // Handle the error here (e.g., log it)
-                println!("Error extracting ZIP archive: {}", err);
-                return Err(err.into());
+            if !full_p {
+                // Extract only first image
+                for i in 0..archive.len() {
+                    let mut file = archive.by_index(i)?;
+                    if let Some(ext) = Path::new(file.name()).extension() {
+                        if let Some(ext_str) = ext.to_str() {
+                            if is_image(ext_str) {
+                                let file_name = file.name().split('/').last().unwrap_or("");
+                                let output_path = temp_dir_path.join(file_name);
+                                let mut outfile = File::create(&output_path)?;
+                                std::io::copy(&mut file, &mut outfile)?;
+                                return Ok(output_path);
+                            }
+                        }
+                    }
+                }
+                Err("No image found in archive".into())
+            } else {
+                // Extract everything
+                archive.extract(&temp_dir_path)?;
+                recursive_file_mover(&temp_dir_path, &temp_dir_path);
+                Ok(temp_dir_path)
             }
-            recursive_file_mover(&temp_dir_path, &temp_dir_path);
-            return Ok(temp_dir_path.clone());
-        } else {
-            println!("Unsupported file extension: {:?}", file_path);
-            // Add actions for unsupported file extensions if needed
-            return Err("Unsupported file extension".into());
-        }
-    } else {
-        println!("No file extension found for {:?}", file_path);
-        return Err("Unsupported file extension".into());
+        },
+        _ => Err("Unsupported file format".into())
     }
-    
 }
 
 fn recursive_file_mover(folder_path: &Path, destination_folder: &Path) {

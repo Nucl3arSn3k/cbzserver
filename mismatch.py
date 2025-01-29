@@ -7,6 +7,11 @@ class FileStatus:
     err_file: bool
 
 
+def first_bytes(file_path, num_bytes=8):
+    with open(file_path, 'rb') as input:
+        return list(input.read(num_bytes))
+
+
 def recursive_search(start_location):
     classhold = []
     entries = os.listdir(start_location)
@@ -19,16 +24,23 @@ def recursive_search(start_location):
             classhold.extend(recursive_search(f_p))
         else:
             l_fstat.filepath = f_p
-            val2 = magic_search(f_p)
+            val3 = first_bytes(f_p)
+            
+            #val2 = magic_search(f_p)
             print(f_p)
+            # ZIP signature: 50 4B 03 04
+            ZIP_SIG = [0x50, 0x4B, 0x03, 0x04]
+            # RAR signatures
+            RAR4_SIG = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00]
+            RAR5_SIG = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00]
+
             if f_p.endswith(('.cbr', '.cbz')):
-                if val2 == "application/zip" and f_p.endswith('.cbr'):
+                if val3[:4] == ZIP_SIG and f_p.endswith('.cbr'):
                     l_fstat.err_file = True
-                elif val2 == "application/x-rar" and f_p.endswith('.cbz'):
+                elif (val3[:7] == RAR4_SIG or val3 == RAR5_SIG) and f_p.endswith('.cbz'):
                     l_fstat.err_file = True
                 else:
                     l_fstat.err_file = False
-                classhold.append(l_fstat)
 
 
 
@@ -54,9 +66,10 @@ def main():
         print("Mismatch")
     """
     x = recursive_search("I:\\Comics")
-    for val in x:
-        if val.err_file:
-            print(val.filepath)
+    with open("logfile.txt", 'w', encoding='utf-8') as file:
+        for val in x:
+            if val.err_file == True:
+                file.write(val.filepath + '\n')  # Also added newline
 
     #val3  = magic_search("I:\\Comics\\2000AD (0000-2162+)(1977-)\\2000AD 0743 (1991) (jaseb).cbr")
 
