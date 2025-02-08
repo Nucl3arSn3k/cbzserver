@@ -3,8 +3,10 @@ use std::fs::{self, File, ReadDir};
 use std::path::{Path, PathBuf};
 use std::{env, result};
 use tempfile::{tempdir, TempDir};
+use tokio::fs as tokfs;
 use unrar::Archive;
 use zip::read::ZipArchive;
+use futures::future::{BoxFuture, FutureExt};
 #[derive(Debug, Serialize, Clone)]
 pub struct cHold {
     name: String,
@@ -40,6 +42,27 @@ fn get_app_data_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("/fallback/path"))
 }
 
+pub fn dir_lister(dir_path: &Path) -> Vec<PathBuf> {
+    let mut val: Vec<PathBuf> = Vec::new();
+    let result_read = match fs::read_dir(dir_path) {
+        Ok(entries) => entries,
+        Err(_) => return val,
+    };
+
+    for x in result_read {
+        if let Ok(entry) = x {
+            let entry_path = entry.path();
+            if entry_path.is_dir() {
+                val.push(entry_path);
+            } else {
+                continue;
+            }
+        }
+    }
+
+    val
+}
+
 pub fn delete_all(dir_path: &PathBuf) -> i32 {
     // just going for C function conventions here,because lazy
     let result_read = match fs::read_dir(dir_path) {
@@ -61,82 +84,66 @@ pub fn delete_all(dir_path: &PathBuf) -> i32 {
     0
 }
 
-pub fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
-    //Should I just provide thumbs here?
+pub async fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
     let mut val: Vec<cHold> = Vec::new();
-    let result_read = match fs::read_dir(dir_path) {
+    
+    let mut read_dir = match tokio::fs::read_dir(dir_path).await {
         Ok(entries) => entries,
         Err(_) => return val,
     };
 
-    for entry in result_read {
-        let result2 = match entry {
-            Ok(direntry) => direntry,
-            Err(_) => return val,
-        };
-        let name_string = result2.file_name().to_string_lossy().to_string();
-        let path = result2.path();
-        if path.is_dir() {
-            let lochold = cHold {
-                name: name_string,
-                filepath: path.clone(),
-                cover_path: None,
-                dirornot: true,
-            };
-            val.push(lochold);
-            let pathv2: &Path = path.as_path();
-            let v2al = catalog_dir(pathv2);
-            val.extend(v2al);
-        } else {
-            //Check filetyope here
-            if let Some(extension) = path.extension().and_then(std::ffi::OsStr::to_str) {
-                match extension {
-                    "cbz" => {
-                        let va2l = compression_handler(&path, false);
-                        let val3 = match va2l {
-                            Ok(path_buf) => path_buf,
-                            Err(e) => {
-                                println!("Error: {}", e);
-                                continue; // Use continue instead of break to skip this file
+    let mut futures = Vec::new();
+    
+    while let Ok(Some(entry)) = read_dir.next_entry().await {
+        let name_string = entry.file_name().to_string_lossy().to_string();
+        let path = entry.path();
+        
+        let future = async move {
+            let mut entries = Vec::new();
+            
+            if path.is_dir() {
+                let lochold = cHold {
+                    name: name_string.clone(),
+                    filepath: path.clone(),
+                    cover_path: None,
+                    dirornot: true,
+                };
+                entries.push(lochold);
+                
+                let mut subdir_entries = catalog_dir(&path).await;
+                entries.append(&mut subdir_entries);
+            } else {
+                if let Some(extension) = path.extension().and_then(std::ffi::OsStr::to_str) {
+                    match extension {
+                        "cbz" | "cbr" => {
+                            if let Ok(cover_path) = compression_handler(&path).await {
+                                let lochold = cHold {
+                                    name: name_string,
+                                    filepath: path.clone(),
+                                    cover_path: Some(cover_path),
+                                    dirornot: false,
+                                };
+                                entries.push(lochold);
+                            } else {
+                                println!("Error processing compressed file: {:?}", path);
                             }
-                        };
-
-                        let lochold = cHold {
-                            name: name_string,
-                            filepath: path.clone(),
-                            cover_path: Some(val3), // Now val3 is PathBuf, not Result<PathBuf>
-                            dirornot: false,
-                        };
-                        val.push(lochold);
-                    }
-
-                    "cbr" => {
-                        let va2l = compression_handler(&path, false);
-                        let val3 = match va2l {
-                            Ok(s) => s,
-                            Err(e) => {
-                                println!("Error: {}", e);
-                                break;
-                            }
-                        };
-                        let lochold = cHold {
-                            name: name_string,
-                            filepath: path.clone(),
-                            cover_path: Some(val3.clone()),
-                            dirornot: false,
-                        };
-                        val.push(lochold);
-                    }
-
-                    _ => {
-
-                        //Unsupported extension
+                        }
+                        _ => {} // Unsupported extension
                     }
                 }
             }
-        }
+            entries
+        };
+        
+        futures.push(future);
     }
 
+    let results = futures::future::join_all(futures).await;
+    
+    for mut result in results {
+        val.append(&mut result);
+    }
+    
     val
 }
 
@@ -155,8 +162,7 @@ pub fn compression_handler(
     fs::create_dir_all(&temp_dir_path)?;
 
     let is_image = |ext: &str| -> bool {
-        ["jpg", "jpeg", "png", "gif", "webp", "bmp"]
-            .contains(&ext.to_lowercase().as_str())
+        ["jpg", "jpeg", "png", "gif", "webp", "bmp"].contains(&ext.to_lowercase().as_str())
     };
 
     let content = fs::read(file_path)?;
@@ -164,11 +170,11 @@ pub fn compression_handler(
 
     match slice {
         // RAR signature check
-        [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00, ..] |
-        [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, ..] => {
+        [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00, ..]
+        | [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, ..] => {
             println!("Processing RAR file: {:?}", file_path);
             let mut archive = Archive::new(file_path).open_for_processing()?;
-            
+
             if !full_p {
                 // Extract only first image
                 while let Some(header) = archive.read_header()? {
@@ -204,7 +210,7 @@ pub fn compression_handler(
                 recursive_file_mover(&temp_dir_path, &temp_dir_path);
                 Ok(temp_dir_path)
             }
-        },
+        }
         // ZIP signature check
         [0x50, 0x4B, 0x03, 0x04, ..] => {
             println!("Processing ZIP file: {:?}", file_path);
@@ -234,8 +240,8 @@ pub fn compression_handler(
                 recursive_file_mover(&temp_dir_path, &temp_dir_path);
                 Ok(temp_dir_path)
             }
-        },
-        _ => Err("Unsupported file format".into())
+        }
+        _ => Err("Unsupported file format".into()),
     }
 }
 
