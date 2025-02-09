@@ -1,27 +1,28 @@
-use std::path::Path;
 use actix_web::middleware::Compress;
-use serde_json;
 use cbztools::{catalog_dir, compression_handler};
+use serde_json;
+use std::path::Path;
 mod cbztools;
 
 fn main() {
-    
-    let val = catalog_dir(Path::new("I:\\Comics"));
+    let val = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(catalog_dir(Path::new("I:\\Comics"), false));
     match serde_json::to_string_pretty(&val) {
         Ok(serialized) => println!("Serialized data:\n{}", serialized),
         Err(e) => println!("Serialization error: {}", e),
     }
-    /* 
-    let x = compression_handler(Path::new("I:\\Comics\\2000AD (0000-2162+)(1977-)\\2000AD 0357 (1984) (Zeg).cbz"), false);
+    /*
+     let x = compression_handler(Path::new("I:\\Comics\\2000AD (0000-2162+)(1977-)\\2000AD 0357 (1984) (Zeg).cbz"), false);
 
-    let pathbuf = match x {
-        Ok(p) => p,
-        Err(e) => {
-            println!("Error: {}", e);
-            return; // Or handle error case appropriately
-        }
-     };
+     let pathbuf = match x {
+         Ok(p) => p,
+         Err(e) => {
+             println!("Error: {}", e);
+             return; // Or handle error case appropriately
+         }
+      };
 
-    println!("{:?}",pathbuf);
-   */ 
+     println!("{:?}",pathbuf);
+    */
 }

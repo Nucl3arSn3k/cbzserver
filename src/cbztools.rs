@@ -15,7 +15,7 @@ pub struct cHold {
     dirornot: bool, //true if dir,false if not
 } //Shove struct instances into a vec and then shove that to templating engine. In terms of cover display,unrar every single one that's a .cbz and .cbr file and display
   //the first one with a image extension as thumb for whatever template
-struct templategen {
+struct templategen { //Not sure what I was doing with this, I'm going to be honest
     name: String,
     filepath: PathBuf,
     cover: PathBuf,
@@ -84,7 +84,7 @@ pub fn delete_all(dir_path: &PathBuf) -> i32 {
     0
 }
 
-pub async fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
+pub async fn catalog_dir(dir_path: &Path , depth: bool) -> Vec<cHold> {
     let mut val: Vec<cHold> = Vec::new();
     
     let mut read_dir = match tokio::fs::read_dir(dir_path).await {
@@ -110,13 +110,13 @@ pub async fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
                 };
                 entries.push(lochold);
                 
-                let mut subdir_entries = catalog_dir(&path).await;
+                let mut subdir_entries = catalog_dir(&path,depth).await;
                 entries.append(&mut subdir_entries);
             } else {
                 if let Some(extension) = path.extension().and_then(std::ffi::OsStr::to_str) {
                     match extension {
                         "cbz" | "cbr" => {
-                            if let Ok(cover_path) = compression_handler(&path).await {
+                            if let Ok(cover_path) = compression_handler(&path,depth).await {
                                 let lochold = cHold {
                                     name: name_string,
                                     filepath: path.clone(),
@@ -147,7 +147,7 @@ pub async fn catalog_dir(dir_path: &Path) -> Vec<cHold> {
     val
 }
 
-pub fn compression_handler(
+pub async fn compression_handler(
     file_path: &Path,
     full_p: bool,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
