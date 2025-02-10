@@ -114,7 +114,7 @@ pub async fn catalog_dir(dir_path: &Path , depth: bool) -> Vec<cHold> {
                 entries.append(&mut subdir_entries);
             } else {
                 if let Some(extension) = path.extension().and_then(std::ffi::OsStr::to_str) {
-                    match extension {
+                    match extension { //JUST CHECK THE MAGIC NUMBERS YOU MORON. "wahh, i don't want to confuse standard rar and zip files". Don't include them
                         "cbz" | "cbr" => {
                             if let Ok(cover_path) = compression_handler(&path,depth).await {
                                 let lochold = cHold {
@@ -176,7 +176,7 @@ pub async fn compression_handler(
             let mut archive = Archive::new(file_path).open_for_processing()?;
 
             if !full_p {
-                // Extract only first image
+                // Extract only first image and figure out how to shove in a DB
                 while let Some(header) = archive.read_header()? {
                     if header.entry().is_file() {
                         let entry_path = header.entry().filename.to_string_lossy().into_owned();

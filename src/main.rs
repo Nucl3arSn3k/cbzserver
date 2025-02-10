@@ -1,35 +1,110 @@
-use actix_web::middleware::Compress;
-use cbztools::{catalog_dir, compression_handler};
-use serde_json;
-use std::cmp::min;
-use std::path::Path;
-use std::time::Instant;
-mod cbztools;
+use std::string;
 
-fn main() {
-    let now = Instant::now();
-    let val = tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(catalog_dir(Path::new("I:\\Comics"), false));
+use actix_web::HttpRequest;
+use actix_web::{get, post,web::Json, HttpResponse, App, HttpServer};
+use cbztools::{cHold, catalog_dir};
+use matchlogic::match_logic;
+use std::path::{Path, PathBuf};
+use serde::Serialize;
+use serde::Deserialize;
+use serde_json;
+mod cbztools;
+mod matchlogic;
+#[derive(Deserialize)]
+struct FilePath{
+    filepath:String,
+
+}
+
+
+#[derive(Deserialize)]
+struct Login{
+    username: String,
+    password: String,
+
+}
+
+
+#[derive(Serialize)]
+struct LoginPerms{
+    sucess: bool,
+    token: Option<String>,
+}
+
+#[derive(Serialize)]
+struct Library {
+    series: Vec<cHold>
+}
+
+
+
+#[get("/api/library")]
+async fn library_send() -> HttpResponse {
+    let now = std::time::Instant::now();
+    
+    let val = catalog_dir(Path::new("I:\\Comics"), false).await;
+    
     let e_time = now.elapsed();
     let min_val = e_time.as_secs()/60;
     let h_val = min_val/60;
-    println!("Scan took {} seconds, which is {} minutes and is {} hours",e_time.as_secs(),min_val,h_val);
+    
+    println!("Scan took {} seconds, which is {} minutes and is {} hours",
+             e_time.as_secs(), min_val, h_val);
+             
     match serde_json::to_string_pretty(&val) {
         Ok(serialized) => println!("Serialized data:\n{}", serialized),
         Err(e) => println!("Serialization error: {}", e),
     }
-    /*
-     let x = compression_handler(Path::new("I:\\Comics\\2000AD (0000-2162+)(1977-)\\2000AD 0357 (1984) (Zeg).cbz"), false);
+   
+    HttpResponse::Ok().json(val)
+}
 
-     let pathbuf = match x {
-         Ok(p) => p,
-         Err(e) => {
-             println!("Error: {}", e);
-             return; // Or handle error case appropriately
-         }
-      };
 
-     println!("{:?}",pathbuf);
-    */
+
+#[post("/api/login")]
+async fn logincheck(credentials: Json<Login>) -> HttpResponse {
+    if credentials.username == "blarch" && credentials.password == "password" {
+        HttpResponse::Ok().json(LoginPerms {
+            sucess: true,
+            token: Some("example_token".to_string())
+        })
+    } else {
+        HttpResponse::Unauthorized().json(LoginPerms{
+            sucess: false,
+            token: None
+        })
+    }
+}
+
+
+
+#[post("/api/fsub")]
+async fn foldercheck(creds: Json<FilePath>) -> HttpResponse { //
+    println!("{}",&creds.filepath);
+    match_logic(&creds.filepath);
+
+    HttpResponse::Unauthorized().json(LoginPerms{
+        sucess: false,
+        token: None
+    })
+
+
+}
+
+
+
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    println!("WOW");
+    //test_catalog().await;
+    HttpServer::new(|| {
+        App::new()
+            .service(foldercheck)
+            .service(logincheck)
+            .service(library_send)
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
 }
