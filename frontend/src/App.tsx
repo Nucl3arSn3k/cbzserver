@@ -37,9 +37,7 @@ function ComicList() {
       {library.loading && <div>Loading library...</div>}
       {library.error && <div>Error loading library: {library.error.message}</div>}
       <div class="series-list">
-        {library()?.series.map((series) => (
-          <div class="series-item">{series}</div>
-        ))}
+        
       </div>
       
     </>

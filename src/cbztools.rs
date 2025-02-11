@@ -1,3 +1,5 @@
+use futures::future::{BoxFuture, FutureExt};
+use rusqlite::{Connection, Result};
 use serde::Serialize;
 use std::fs::{self, File, ReadDir};
 use std::path::{Path, PathBuf};
@@ -6,7 +8,6 @@ use tempfile::{tempdir, TempDir};
 use tokio::fs as tokfs;
 use unrar::Archive;
 use zip::read::ZipArchive;
-use futures::future::{BoxFuture, FutureExt};
 #[derive(Debug, Serialize, Clone)]
 pub struct cHold {
     name: String,
@@ -15,7 +16,8 @@ pub struct cHold {
     dirornot: bool, //true if dir,false if not
 } //Shove struct instances into a vec and then shove that to templating engine. In terms of cover display,unrar every single one that's a .cbz and .cbr file and display
   //the first one with a image extension as thumb for whatever template
-struct templategen { //Not sure what I was doing with this, I'm going to be honest
+struct templategen {
+    //Not sure what I was doing with this, I'm going to be honest
     name: String,
     filepath: PathBuf,
     cover: PathBuf,
@@ -84,67 +86,94 @@ pub fn delete_all(dir_path: &PathBuf) -> i32 {
     0
 }
 
-pub async fn catalog_dir(dir_path: &Path , depth: bool) -> Vec<cHold> {
-    let mut val: Vec<cHold> = Vec::new();
-    
-    let mut read_dir = match tokio::fs::read_dir(dir_path).await {
-        Ok(entries) => entries,
-        Err(_) => return val,
-    };
+pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
+    if !Path::new("cache.db").exists() {
+        //turn it into a chold
 
-    let mut futures = Vec::new();
-    
-    while let Ok(Some(entry)) = read_dir.next_entry().await {
-        let name_string = entry.file_name().to_string_lossy().to_string();
-        let path = entry.path();
-        
-        let future = async move {
-            let mut entries = Vec::new();
-            
-            if path.is_dir() {
-                let lochold = cHold {
-                    name: name_string.clone(),
-                    filepath: path.clone(),
-                    cover_path: None,
-                    dirornot: true,
-                };
-                entries.push(lochold);
-                
-                let mut subdir_entries = catalog_dir(&path,depth).await;
-                entries.append(&mut subdir_entries);
-            } else {
-                if let Some(extension) = path.extension().and_then(std::ffi::OsStr::to_str) {
-                    match extension { //JUST CHECK THE MAGIC NUMBERS YOU MORON. "wahh, i don't want to confuse standard rar and zip files". Don't include them
-                        "cbz" | "cbr" => {
-                            if let Ok(cover_path) = compression_handler(&path,depth).await {
-                                let lochold = cHold {
-                                    name: name_string,
-                                    filepath: path.clone(),
-                                    cover_path: Some(cover_path),
-                                    dirornot: false,
-                                };
-                                entries.push(lochold);
-                            } else {
-                                println!("Error processing compressed file: {:?}", path);
-                            }
-                        }
-                        _ => {} // Unsupported extension
-                    }
-                }
+        let mut vx: Vec<cHold> = Vec::new();
+
+        vx
+    } else {
+        let mut val: Vec<cHold> = Vec::new();
+        let connection = match Connection::open("cache.db") {
+            Ok(conn) => conn,
+            Err(e) => {
+                println!("Error is {}", e);
+                return val; // or handle the error appropriately
             }
-            entries
         };
         
-        futures.push(future);
-    }
+        // Now you can use connection here
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS files (
+                filepath TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                coverpath TEXT,
+                dirornot INTEGER NOT NULL
+            )",
+            [],
+        );
 
-    let results = futures::future::join_all(futures).await;
-    
-    for mut result in results {
-        val.append(&mut result);
+        let mut read_dir = match tokio::fs::read_dir(dir_path).await {
+            Ok(entries) => entries,
+            Err(_) => return val,
+        };
+
+        let mut futures = Vec::new();
+
+        while let Ok(Some(entry)) = read_dir.next_entry().await {
+            let name_string = entry.file_name().to_string_lossy().to_string();
+            let path = entry.path();
+
+            let future = async move {
+                let mut entries = Vec::new();
+
+                if path.is_dir() {
+                    let lochold = cHold {
+                        name: name_string.clone(),
+                        filepath: path.clone(),
+                        cover_path: None,
+                        dirornot: true,
+                    };
+                    entries.push(lochold); //Here's the DB entry
+
+                    let mut subdir_entries = catalog_dir(&path, depth).await;
+                    entries.append(&mut subdir_entries);
+                } else {
+                    if let Some(extension) = path.extension().and_then(std::ffi::OsStr::to_str) {
+                        match extension {
+                            //JUST CHECK THE MAGIC NUMBERS YOU MORON. "wahh, i don't want to confuse standard rar and zip files". Don't include them
+                            "cbz" | "cbr" => {
+                                if let Ok(cover_path) = compression_handler(&path, depth).await {
+                                    let lochold = cHold {
+                                        name: name_string,
+                                        filepath: path.clone(),
+                                        cover_path: Some(cover_path),
+                                        dirornot: false,
+                                    };
+                                    entries.push(lochold); //Here's where the DB entry should happen
+                                } else {
+                                    println!("Error processing compressed file: {:?}", path);
+                                }
+                            }
+                            _ => {} // Unsupported extension
+                        }
+                    }
+                }
+                entries
+            };
+
+            futures.push(future);
+        }
+
+        let results = futures::future::join_all(futures).await;
+
+        for mut result in results {
+            val.append(&mut result);
+        }
+
+        val
     }
-    
-    val
 }
 
 pub async fn compression_handler(
