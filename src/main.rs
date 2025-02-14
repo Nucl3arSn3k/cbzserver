@@ -1,7 +1,8 @@
 use std::string;
 
+use actix_web::http::header::ContentType;
 use actix_web::HttpRequest;
-use actix_web::{get, post, web::Json, App, HttpResponse, HttpServer};
+use actix_web::{get, post, web::Json, App, HttpResponse, HttpServer,http::StatusCode};
 use cbztools::{cHold, catalog_dir, dbconfig};
 use matchlogic::match_logic;
 use serde::Deserialize;
@@ -33,6 +34,7 @@ struct Library {
     series: Vec<cHold>,
 }
 
+
 #[get("/api/library")]
 async fn library_send() -> HttpResponse {
     let now = std::time::Instant::now();
@@ -57,7 +59,10 @@ async fn library_send() -> HttpResponse {
             Ok(conn) => conn,
             Err(e) => {
                 println!("Error is {}", e);
-                return Vec::new();  // Return early from the function with an empty Vec
+                return HttpResponse::InternalServerError()
+                .content_type(ContentType::plaintext())
+                .insert_header(("SQLITE server error","demo"))
+                .finish();  // Return early from the function with an empty Vec
             }
         };
 
@@ -88,13 +93,17 @@ async fn library_send() -> HttpResponse {
 
 
     }
-
+    /* 
     match serde_json::to_string_pretty(&vax) {
         Ok(serialized) => println!("Serialized data:\n{}", serialized),
         Err(e) => println!("Serialization error: {}", e),
     }
-
-    HttpResponse::Ok().json(vax)
+    */
+    //HttpResponse::Ok().json(vax)
+    return HttpResponse::Ok()
+                .content_type(ContentType::plaintext())
+                .insert_header(("All good!","demo"))
+                .finish(); 
 }
 
 #[post("/api/login")]
