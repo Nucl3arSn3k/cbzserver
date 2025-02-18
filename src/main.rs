@@ -89,10 +89,22 @@ async fn library_send() -> HttpResponse {
         }
     }
     else{
-        //Serialize existing DB to JSON
+        //Just print something,idk.
 
 
     }
+    let connection = match Connection::open("cache.db") {
+        Ok(conn) => conn,
+        Err(e) => {
+            println!("Error is {}", e);
+            return HttpResponse::InternalServerError()
+            .content_type(ContentType::plaintext())
+            .insert_header(("SQLITE server error","demo"))
+            .finish();  // Return early from the function with an empty Vec
+        }
+    };
+
+    
     /* 
     match serde_json::to_string_pretty(&vax) {
         Ok(serialized) => println!("Serialized data:\n{}", serialized),
