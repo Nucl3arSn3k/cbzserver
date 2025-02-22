@@ -14,7 +14,18 @@ pub struct cHold {
     pub filepath: PathBuf,
     pub cover_path: Option<PathBuf>,
     pub dirornot: bool, //true if dir,false if not
-} //Shove struct instances into a vec and then shove that to templating engine. In terms of cover display,unrar every single one that's a .cbz and .cbr file and display
+}
+
+#[derive(Debug,Serialize)]
+pub struct dbHold {
+    pub name: String,
+    pub filepath: String,
+    pub cover_path: Option<String>,
+    pub dirornot: i32,
+
+
+}
+//Shove struct instances into a vec and then shove that to templating engine. In terms of cover display,unrar every single one that's a .cbz and .cbr file and display
   //the first one with a image extension as thumb for whatever template
 struct templategen {
     //Not sure what I was doing with this, I'm going to be honest

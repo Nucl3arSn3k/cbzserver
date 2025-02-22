@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use rusqlite::{Connection, Result};
 mod cbztools;
 mod matchlogic;
+mod sqlitejson;
 #[derive(Deserialize)]
 struct FilePath {
     filepath: String,
@@ -70,10 +71,10 @@ async fn library_send() -> HttpResponse {
 
 
             match connection.execute(
-                "INSERT INTO files (filepath, name, cover_path, dirornot) VALUES (?1, ?2, ?3, ?4)",
+                "INSERT INTO files (name, filepath, cover_path, dirornot) VALUES (?1, ?2, ?3, ?4)",
                 (
-                    &lochold.filepath.to_string_lossy().to_string(),
                     &lochold.name,
+                    &lochold.filepath.to_string_lossy().to_string(),
                     &lochold.cover_path.as_ref().map(|p| p.to_string_lossy().to_string()),
                     &lochold.dirornot
                 ),
