@@ -120,7 +120,7 @@ pub fn dbconfig(path: String) -> bool {
                 )",
             [],
         ) {
-            Ok(_) => true,
+            Ok(_) => false, // Super janky. Could use a custom type to handle this,but don't want to.
             Err(e) => {
                 println!("Error creating db {}", e);
                 false
@@ -297,7 +297,7 @@ pub async fn compression_handler(
     }
 }
 
-fn recursive_file_mover(folder_path: &Path, destination_folder: &Path) {
+fn recursive_file_mover(folder_path: &Path, destination_folder: &Path) { //Make this async
     //if the cbz or cbr file is nested in another folder,this just grabs all the files and puts them in the newly created folder
     if let Ok(entries) = fs::read_dir(folder_path) {
         println!("Recursive file mover triggered");
