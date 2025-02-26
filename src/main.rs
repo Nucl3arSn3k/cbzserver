@@ -46,7 +46,7 @@ async fn library_send() -> HttpResponse {
 
     if dbcon == false {
         println!("Starting scan");
-        vax = catalog_dir(Path::new("I:\\Comics"), false).await;
+        vax = catalog_dir(Path::new("I:\\Comics"), false).await; //Insert an arbiter here?
 
         let e_time = now.elapsed();
         let min_val = e_time.as_secs() / 60;
@@ -108,18 +108,17 @@ async fn library_send() -> HttpResponse {
         Ok(conn) => conn,
         Err(e) => {
             println!("Error is {}", e);
-            return HttpResponse::InternalServerError()
-                .content_type(ContentType::plaintext())
-                .insert_header(("SQLITE server error", "demo"))
-                .finish(); // Return early from the function with an empty Vec
+            return HttpResponse::InternalServerError().body(format!("Error: {}", e)); // Return early from the function with an empty Vec
         }
     };
     let stval = match sqlitejson::sq_to_json_boxed(connection) {
         Ok(strval) => {
             println!("{}", strval);
+            strval
         }
         Err(e) => {
             println!("Error is {}", e);
+            return HttpResponse::InternalServerError().body(format!("Error: {}", e));
         }
     };
 
@@ -130,10 +129,8 @@ async fn library_send() -> HttpResponse {
     }
     */
     //HttpResponse::Ok().json(vax)
-    return HttpResponse::Ok()
-        .content_type(ContentType::plaintext())
-        .insert_header(("All good!", "demo"))
-        .finish();
+    return HttpResponse::Ok().json(stval)
+        
 }
 
 #[post("/api/login")]

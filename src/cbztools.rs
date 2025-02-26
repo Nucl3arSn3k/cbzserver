@@ -16,17 +16,15 @@ pub struct cHold {
     pub dirornot: bool, //true if dir,false if not
 }
 
-#[derive(Debug,Serialize)]
+#[derive(Debug, Serialize)]
 pub struct dbHold {
     pub name: String,
     pub filepath: String,
     pub cover_path: Option<String>,
     pub dirornot: i32,
-
-
 }
 //Shove struct instances into a vec and then shove that to templating engine. In terms of cover display,unrar every single one that's a .cbz and .cbr file and display
-  //the first one with a image extension as thumb for whatever template
+//the first one with a image extension as thumb for whatever template
 struct templategen {
     //Not sure what I was doing with this, I'm going to be honest
     name: String,
@@ -109,7 +107,7 @@ pub fn dbconfig(path: String) -> bool {
                 return false; // Return early from the function
             }
         };
-        
+
         match connection.execute(
             "CREATE TABLE IF NOT EXISTS files (
                     id INTEGER PRIMARY KEY,
@@ -132,10 +130,8 @@ pub fn dbconfig(path: String) -> bool {
 //Due to the recursion, I think I need a seperate config for the DB
 pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
     let mut val: Vec<cHold> = Vec::new();
-    
 
     // Now you can use connection here
-    
 
     let mut read_dir = match tokio::fs::read_dir(dir_path).await {
         Ok(entries) => entries,
@@ -175,7 +171,6 @@ pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
                                     dirornot: false,
                                 };
                                 entries.push(lochold); //Here's where the DB entry should happen
-                               
                             } else {
                                 println!("Error processing compressed file: {:?}", path);
                             }
@@ -297,7 +292,8 @@ pub async fn compression_handler(
     }
 }
 
-fn recursive_file_mover(folder_path: &Path, destination_folder: &Path) { //Make this async
+fn recursive_file_mover(folder_path: &Path, destination_folder: &Path) {
+    //Make this async
     //if the cbz or cbr file is nested in another folder,this just grabs all the files and puts them in the newly created folder
     if let Ok(entries) = fs::read_dir(folder_path) {
         println!("Recursive file mover triggered");
