@@ -1,8 +1,25 @@
-/* @refresh reload */
-import { render } from 'solid-js/web'
-import './index.css'
-import App from './App.tsx'
+import { render } from 'preact';
+import { LocationProvider, Router, Route } from 'preact-iso';
 
-const root = document.getElementById('root')
+import { Header } from './components/Header.jsx';
+import { Home } from './pages/Home/index.jsx';
+import {Login} from './pages/login.jsx';
+import { NotFound } from './pages/_404.jsx';
+import './style.css';
 
-render(() => <App />, root!)
+export function App() {
+	return (
+		<LocationProvider>
+			<Header />
+			<main>
+				<Router>
+					<Route path="/login" component={Login} />
+					<Route path="/" component={Home} />
+					<Route default component={NotFound} />
+				</Router>
+			</main>
+		</LocationProvider>
+	);
+}
+
+render(<App />, document.getElementById('app'));

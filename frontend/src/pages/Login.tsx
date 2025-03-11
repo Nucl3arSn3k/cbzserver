@@ -1,80 +1,47 @@
-// pages/Login.tsx
-import { createSignal } from 'solid-js'
 
-export default function Login() {
-  const [username, setUsername] = createSignal('')
-  const [password, setPassword] = createSignal('')
+import '../style.css'
+import { useLocation } from 'preact-iso';
+export function Login() {
+    const { route } = useLocation();
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
 
-  const handleSubmit = async (e: Event) => {
-    e.preventDefault()
-    const response = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: username(),
-        password: password()
-      })
-    })
-    if (response.ok) {
-      // Redirect or handle successful login
+        fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: formData.get('username'),
+                password: formData.get('password')
+            })
+        })
+            .then(response => {
+                if (response.ok) {
+                    route('/');
+                }
+            });
     }
-  }
 
-  return (
-    <>
-      <h1>Login</h1>
-      <form onSubmit={handleSubmit} style={{
-        "max-width": "400px",
-        "margin": "2rem auto"
-      }}>
-        <div style={{ "margin-bottom": "1rem" }}>
-          <label 
-            for="username" 
-            style={{ 
-              "display": "block",
-              "margin-bottom": "0.5rem"
-            }}
-          >
-            Username:
-          </label>
-          <input
-            type="text"
-            id="username"
-            value={username()}
-            onInput={(e) => setUsername(e.currentTarget.value)}
-            required
-            style={{ "width": "100%" }}
-          />
+    return (
+        <div>
+            <h1>Login</h1>
+            <form onSubmit={handleSubmit} style={{ maxWidth: "400px", margin: "2rem auto" }}>
+                <div style={{ marginBottom: "1rem" }}>
+                    <label for="username" style={{ display: "block", marginBottom: "0.5rem" }}>
+                        Username:
+                    </label>
+                    <input type="text" id="username" name="username" required style={{ width: "100%" }} />
+                </div>
+                <div style={{ marginBottom: "1rem" }}>
+                    <label for="password" style={{ display: "block", marginBottom: "0.5rem" }}>
+                        Password:
+                    </label>
+                    <input type="password" id="password" name="password" required style={{ width: "100%" }} />
+                </div>
+                <button type="submit" style={{ width: "100%", marginTop: "1rem" }}>
+                    Login
+                </button>
+            </form>
         </div>
-        <div style={{ "margin-bottom": "1rem" }}>
-          <label 
-            for="password"
-            style={{ 
-              "display": "block",
-              "margin-bottom": "0.5rem"
-            }}
-          >
-            Password:
-          </label>
-          <input
-            type="password"
-            id="password"
-            value={password()}
-            onInput={(e) => setPassword(e.currentTarget.value)}
-            required
-            style={{ "width": "100%" }}
-          />
-        </div>
-        <button 
-          type="submit"
-          style={{
-            "width": "100%",
-            "margin-top": "1rem"
-          }}
-        >
-          Login
-        </button>
-      </form>
-    </>
-  )
+    );
 }
