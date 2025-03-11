@@ -16,7 +16,7 @@ pub fn sq_to_json_boxed(con: Connection) -> Result<String> { //Cleaned this up w
             cover_path: row.get(2)?,
             dirornot: row.get(3)?,
         })
-    })?;
+    })?; //Convert into a struct. May want to define that here actually,little unclear as of now
     
     let mut objects = Vec::new();
     for entry in entry_iter {
