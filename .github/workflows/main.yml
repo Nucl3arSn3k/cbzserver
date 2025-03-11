@@ -1,0 +1,37 @@
+name: CompleteTest
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  rust-build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build Rust backend
+      run: cargo build --verbose
+    - name: Run Rust tests
+      run: cargo test --verbose
+
+  node-build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    - name: Install dependencies
+      working-directory: ./frontend  
+      run: npm ci
+    - name: Build frontend
+      working-directory: ./frontend  
+      run: npm run build
+    - name: Run frontend tests
+      working-directory: ./frontend 
+      run: npm test
+
