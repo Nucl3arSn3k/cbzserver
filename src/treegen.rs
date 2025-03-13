@@ -1,5 +1,6 @@
 use crate::cbztools::dbHold;
 use petgraph::graph::{Graph, NodeIndex};
+use petgraph::dot::{Dot, Config};
 use rusqlite::Connection;
 use std::collections::HashMap;
 #[derive(Debug)]
@@ -8,7 +9,23 @@ pub struct TreeNode {
     nodelevel: i32,
 }
 
+
+
+
+pub fn dump_graph(graph: Graph<TreeNode, String>) { //adding graphviz support for debug,take this out in final build
+    let dot_string = format!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+
+    std::fs::write("graph.dot", dot_string).expect("Error writing file");
+
+    println!("Graph dumped");
+
+}
+
+
+
 /*Generate a graph. Each node is a folder in the tree. Store files in the internal vec and connect all the nodes via edges. Depth in filesystem is tracked with stack */
+
+
 
 pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
     let mut graph = Graph::<TreeNode, String>::new();
@@ -75,7 +92,7 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
 
                 pathstack.push(baseline); //Shove the baseline object to the statestack
 
-                for x in objects.into_iter().take(1) {
+                for x in objects {
                     //Now for a real man's node generation
                     //let pathcheck = x.filepath;
 

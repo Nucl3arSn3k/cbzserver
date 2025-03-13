@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::Write;
+use std::process::Command;
 use std::string;
 
 use actix_web::http::header::ContentType;
@@ -11,7 +12,7 @@ use rusqlite::{Connection, Result};
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json;
-use treegen::create_graph;
+use treegen::{create_graph, dump_graph};
 use std::path::{Path, PathBuf};
 mod cbztools;
 mod matchlogic;
@@ -115,6 +116,8 @@ async fn library_send() -> HttpResponse {
     };
     //Pass connection to treegen 
     let graph = create_graph(connection);
+    dump_graph(graph);
+    
     /* 
     let stval = match sqlitejson::sq_to_json_boxed(connection) {
         Ok(strval) => {
