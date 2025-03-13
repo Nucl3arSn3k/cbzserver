@@ -11,10 +11,12 @@ use rusqlite::{Connection, Result};
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json;
+use treegen::create_graph;
 use std::path::{Path, PathBuf};
 mod cbztools;
 mod matchlogic;
 mod sqlitejson;
+mod treegen;
 #[derive(Deserialize)]
 struct FilePath {
     filepath: String,
@@ -111,6 +113,9 @@ async fn library_send() -> HttpResponse {
             return HttpResponse::InternalServerError().body(format!("Error: {}", e)); // Return early from the function with an empty Vec
         }
     };
+    //Pass connection to treegen 
+    let graph = create_graph(connection);
+    /* 
     let stval = match sqlitejson::sq_to_json_boxed(connection) {
         Ok(strval) => {
             println!("{}", strval);
@@ -120,7 +125,7 @@ async fn library_send() -> HttpResponse {
             println!("Error is {}", e);
             return HttpResponse::InternalServerError().body(format!("Error: {}", e));
         }
-    };
+    };*/
 
     /*
     match serde_json::to_string_pretty(&vax) {
@@ -129,7 +134,8 @@ async fn library_send() -> HttpResponse {
     }
     */
     //HttpResponse::Ok().json(vax)
-    return HttpResponse::Ok().json(stval)
+    let stvaltmp = "test";
+    return HttpResponse::Ok().json(stvaltmp)
         
 }
 

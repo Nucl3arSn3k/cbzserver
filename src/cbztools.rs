@@ -16,7 +16,7 @@ pub struct cHold {
     pub dirornot: bool, //true if dir,false if not
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize,Clone)]
 pub struct dbHold {
     pub name: String,
     pub filepath: String,
