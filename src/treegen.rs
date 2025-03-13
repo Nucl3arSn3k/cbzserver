@@ -92,7 +92,7 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
 
                 pathstack.push(baseline); //Shove the baseline object to the statestack
 
-                for x in objects {
+                for x in objects.into_iter().take(7) {
                     //Now for a real man's node generation
                     //let pathcheck = x.filepath;
 
@@ -191,6 +191,7 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
                         // You can also use absolute_level if needed
                     } else {
                         // This is a file, add it to the current directory node
+                        /* 
                         if let Some(current_dir) = pathstack.last() {
                             if graphtrack.contains_key(&current_dir.filepath) {
                                 let dir_index = graphtrack.get(&current_dir.filepath).unwrap();
@@ -200,7 +201,8 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
                                     node_weight.contents.push(x);
                                 }
                             }
-                        }
+                        }*/
+                        continue;
                     }
                 }
             }
