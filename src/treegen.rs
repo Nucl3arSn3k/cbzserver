@@ -91,8 +91,8 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
                 let mut pathstack: Vec<dbHold> = Vec::new();
 
                 pathstack.push(baseline); //Shove the baseline object to the statestack
-
-                for x in objects.into_iter().take(7) {
+                println!("objects length is{:?}",objects.len());
+                for x in objects.into_iter().filter(|item| item.dirornot == 1).take(7) {
                     //Now for a real man's node generation
                     //let pathcheck = x.filepath;
 
