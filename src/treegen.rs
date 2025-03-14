@@ -92,7 +92,7 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
 
                 pathstack.push(baseline); //Shove the baseline object to the statestack
                 println!("objects length is{:?}",objects.len());
-                for x in objects.into_iter().filter(|item| item.dirornot == 1).take(7) {
+                for x in objects.into_iter().filter(|item| item.dirornot == 1) {
                     //Now for a real man's node generation
                     //let pathcheck = x.filepath;
 
@@ -115,12 +115,13 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
                         let current_level = gval.len() - 1;
 
                         // Get both differences
-                        let diff_from_stack_top: isize =
-                            current_level as isize - stack_top_level as isize;
+                        let diff_from_stack_top: isize = current_level as isize - stack_top_level as isize;
                         let absolute_level: isize = current_level as isize - root_level as isize;
 
                         println!("Level diff from stack top: {:?}", diff_from_stack_top);
                         println!("Absolute level from root: {:?}", absolute_level);
+
+                        println!("file path for reference: {:?}",loclevel);
 
                         // Now you can use both pieces of information
                         if diff_from_stack_top == 1 { // Just add as child to current, and push onto stack
@@ -164,7 +165,7 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
                             let pops_needed = diff_from_stack_top.abs() as usize;
                             
                             // Pop the stack to get to the right level
-                            for _ in 0..pops_needed {
+                            while pathstack.len() > absolute_level as usize {
                                 pathstack.pop();
                             }
                             
