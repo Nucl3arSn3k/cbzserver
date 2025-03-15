@@ -1,6 +1,7 @@
 use crate::cbztools::dbHold;
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::dot::{Dot, Config};
+use rusqlite::ffi::SQLITE_LIMIT_COMPOUND_SELECT;
 use rusqlite::Connection;
 use std::collections::HashMap;
 #[derive(Debug)]
@@ -111,83 +112,28 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
 
                         // Calculate the current item's level
                         let loclevel = &x.filepath;
-                        let gval: Vec<&str> = loclevel.split('\\').collect();
+                        let mut gval: Vec<&str> = loclevel.split('\\').collect();
+                        gval.pop();
                         let current_level = gval.len() - 1;
-
-                        // Get both differences
-                        let diff_from_stack_top: isize = current_level as isize - stack_top_level as isize;
-                        let absolute_level: isize = current_level as isize - root_level as isize;
-
-                        println!("Level diff from stack top: {:?}", diff_from_stack_top);
-                        println!("Absolute level from root: {:?}", absolute_level);
-
-                        println!("file path for reference: {:?}",loclevel);
-
-                        // Now you can use both pieces of information
-                        if diff_from_stack_top == 1 { // Just add as child to current, and push onto stack
-                            if graphtrack.contains_key(&val.filepath) {
-                                let parent_index = graphtrack.get(&val.filepath).unwrap();
-                                let mut new_contents = Vec::new();
-                                new_contents.push(x.clone());
-                                
-                                let new_node = TreeNode {
-                                    contents: new_contents,
-                                    nodelevel: current_level as i32,
-                                };
-                                
-                                let new_index = graph.add_node(new_node);
-                                graph.add_edge(*parent_index, new_index, "child".to_string());
-                                graphtrack.insert(x.filepath.clone(), new_index);
-                                pathstack.push(x); // Add to stack
-                            }
-                        } else if diff_from_stack_top == 0 { // sibling, pop once, add as child to parent, push to stack
-                            pathstack.pop(); // Remove current
-                            if let Some(parent) = pathstack.last() {
-                                if graphtrack.contains_key(&parent.filepath) {
-                                    let parent_index = graphtrack.get(&parent.filepath).unwrap();
-                                    let mut new_contents = Vec::new();
-                                    new_contents.push(x.clone());
-                                    
-                                    let new_node = TreeNode {
-                                        contents: new_contents,
-                                        nodelevel: current_level as i32,
-                                    };
-                                    
-                                    let new_index = graph.add_node(new_node);
-                                    graph.add_edge(*parent_index, new_index, "child".to_string());
-                                    graphtrack.insert(x.filepath.clone(), new_index);
-                                    pathstack.push(x); // Add to stack
-                                }
-                            }
-                        }
-                        else if diff_from_stack_top < 0 {
-                            // Pop multiple times to get to the right level
-                            let pops_needed = diff_from_stack_top.abs() as usize;
+                        let recombined = gval.join("\\");
+                        println!("Actual level is : {:?}",loclevel);
+                        println!("Parent level is :{:?}",recombined); //parent node gen
+                        if graphtrack.contains_key(&recombined){ //look it up
+                            println!("recombined key found");
+                            let parent_index = graphtrack.get(&recombined).unwrap();
+                            let mut new_contents = Vec::new();
+                            new_contents.push(x.clone());
+                            let new_node = TreeNode{
+                                contents:new_contents,
+                                nodelevel: current_level as i32
+                            };
+                            let new_index = graph.add_node(new_node);
+                            graph.add_edge(*parent_index, new_index, "child".to_string());
+                            graphtrack.insert(x.filepath, new_index);
                             
-                            // Pop the stack to get to the right level
-                            while pathstack.len() > absolute_level as usize {
-                                pathstack.pop();
-                            }
-                            
-                            // Now add as a child of the current top of stack
-                            if let Some(ancestor) = pathstack.last() {
-                                if graphtrack.contains_key(&ancestor.filepath) {
-                                    let ancestor_index = graphtrack.get(&ancestor.filepath).unwrap();
-                                    let mut new_contents = Vec::new();
-                                    new_contents.push(x.clone());
-                                    
-                                    let new_node = TreeNode {
-                                        contents: new_contents,
-                                        nodelevel: current_level as i32,
-                                    };
-                                    
-                                    let new_index = graph.add_node(new_node);
-                                    graph.add_edge(*ancestor_index, new_index, "child".to_string());
-                                    graphtrack.insert(x.filepath.clone(), new_index);
-                                    pathstack.push(x); // Add to stack
-                                }
-                            }
+
                         }
+                        
 
                         // You can also use absolute_level if needed
                     } else {

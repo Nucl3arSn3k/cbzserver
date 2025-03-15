@@ -128,7 +128,7 @@ pub fn dbconfig(path: String) -> bool {
 }
 
 //Due to the recursion, I think I need a seperate config for the DB
-pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
+pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> { //Could also generate tree here,will profile preformance later and see what's faster
     let mut val: Vec<cHold> = Vec::new();
 
     // Now you can use connection here
