@@ -13,6 +13,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json;
 use treegen::{create_graph, dump_graph};
+use petgraph::graph::{Graph, NodeIndex};
 use std::path::{Path, PathBuf};
 mod cbztools;
 mod matchlogic;
@@ -116,7 +117,8 @@ async fn library_send() -> HttpResponse {
     };
     //Pass connection to treegen 
     let graph = create_graph(connection);
-    dump_graph(graph);
+    
+    dump_graph(graph.tree);
     
     /* 
     let stval = match sqlitejson::sq_to_json_boxed(connection) {

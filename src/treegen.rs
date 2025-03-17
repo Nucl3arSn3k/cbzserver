@@ -10,6 +10,11 @@ pub struct TreeNode {
     nodelevel: i32,
 }
 
+pub struct Holder{
+    pub map:HashMap<String, NodeIndex>,
+    pub tree:Graph<TreeNode,String>
+}
+
 
 
 
@@ -28,7 +33,7 @@ pub fn dump_graph(graph: Graph<TreeNode, String>) { //adding graphviz support fo
 
 
 
-pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
+pub fn create_graph(con: Connection) -> Holder {
     let mut graph = Graph::<TreeNode, String>::new();
     let mut graphtrack: HashMap<String, NodeIndex> = HashMap::new();
 
@@ -93,7 +98,7 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
 
                 pathstack.push(baseline); //Shove the baseline object to the statestack
                 println!("objects length is{:?}",objects.len());
-                for x in objects.into_iter().filter(|item| item.dirornot == 1) {
+                for x in objects.into_iter().take(20) {
                     //Now for a real man's node generation
                     //let pathcheck = x.filepath;
 
@@ -101,15 +106,12 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
 
                     // Store the root level when you initialize your stack
                     let root_level = 1; // Or whatever the initial level is
-
+                    let global_dir:dbHold;
                     // Then in your processing loop:
                     if x.dirornot == 1 {
+                        let global_dir = x.clone();
                         // Is dir
-                        let val = pathstack.last().unwrap(); // peek the stack
-                        let val_path = &val.filepath;
-                        let sval: Vec<&str> = val_path.split('\\').collect();
-                        let stack_top_level = sval.len() - 1; // level of the last element
-
+                        
                         // Calculate the current item's level
                         let loclevel = &x.filepath;
                         let mut gval: Vec<&str> = loclevel.split('\\').collect();
@@ -118,7 +120,7 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
                         let recombined = gval.join("\\");
                         println!("Actual level is : {:?}",loclevel);
                         println!("Parent level is :{:?}",recombined); //parent node gen
-                        if graphtrack.contains_key(&recombined){ //look it up
+                        if graphtrack.contains_key(&recombined){ //look it up in the table
                             println!("recombined key found");
                             let parent_index = graphtrack.get(&recombined).unwrap();
                             let mut new_contents = Vec::new();
@@ -140,15 +142,27 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
                         // This is a file, add it to the current directory node
                         /* 
                         if let Some(current_dir) = pathstack.last() {
-                            if graphtrack.contains_key(&current_dir.filepath) {
-                                let dir_index = graphtrack.get(&current_dir.filepath).unwrap();
-                                
-                                // Get a mutable reference to the node and update its contents
-                                if let Some(node_weight) = graph.node_weight_mut(*dir_index) {
-                                    node_weight.contents.push(x);
-                                }
-                            }
+
                         }*/
+                        //pop final element off,should show parent folder
+                        let loclevel = &x.filepath;
+                        let mut gval: Vec<&str> = loclevel.split('\\').collect();
+                        gval.pop();
+                        let current_level = gval.len() - 1;
+                        let recombined = gval.join("\\");
+
+                        println!("Actual filepath is {:?}",x.filepath);
+                        println!("Parent filepath is {:?}",recombined);
+
+
+                        if graphtrack.contains_key(&recombined) {
+                            let dir_index = graphtrack.get(&recombined).unwrap();
+                            
+                            // Get a mutable reference to the node and update its contents
+                            if let Some(node_weight) = graph.node_weight_mut(*dir_index) {
+                                node_weight.contents.push(x);
+                            }
+                        }
                         continue;
                     }
                 }
@@ -159,5 +173,12 @@ pub fn create_graph(con: Connection) -> Graph<TreeNode, String> {
         }
     }
 
-    graph
+
+    let hold_val = Holder{
+        map: graphtrack,
+        tree: graph,
+    };
+
+    hold_val
+    
 }
