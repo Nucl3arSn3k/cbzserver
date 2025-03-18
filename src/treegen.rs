@@ -1,7 +1,6 @@
 use crate::cbztools::dbHold;
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::dot::{Dot, Config};
-use rusqlite::ffi::SQLITE_LIMIT_COMPOUND_SELECT;
 use rusqlite::Connection;
 use std::collections::HashMap;
 #[derive(Debug)]
@@ -16,7 +15,12 @@ pub struct Holder{
 }
 
 
+pub fn serialize_node(){
 
+
+
+
+}
 
 pub fn dump_graph(graph: Graph<TreeNode, String>) { //adding graphviz support for debug,take this out in final build
     let dot_string = format!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));

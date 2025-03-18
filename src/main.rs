@@ -44,7 +44,7 @@ struct Library {
 #[get("/api/library")]
 async fn library_send() -> HttpResponse {
     let now = std::time::Instant::now();
-
+    let basedir = "I:\\Comics";
     let dbcon = dbconfig("cache.db".to_string());
     let mut vax = Vec::new();
 
@@ -119,6 +119,11 @@ async fn library_send() -> HttpResponse {
     let graph = create_graph(connection);
     
     dump_graph(graph.tree);
+
+    if graph.map.contains_key(basedir){
+
+        let dir_index = graph.map.get(basedir).unwrap();
+    }
     
     /* 
     let stval = match sqlitejson::sq_to_json_boxed(connection) {
