@@ -12,7 +12,7 @@ use rusqlite::{Connection, Result};
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json;
-use treegen::{create_graph, dump_graph};
+use treegen::{create_graph, dump_graph, FrontendNode};
 use petgraph::graph::{Graph, NodeIndex};
 use std::path::{Path, PathBuf};
 mod cbztools;
@@ -124,7 +124,7 @@ async fn library_send() -> HttpResponse {
 
         let dir_index = graph.map.get(basedir).unwrap();
     }
-    
+    let nodeval = FrontendNode::from_graph(&graph, basedir);
     /* 
     let stval = match sqlitejson::sq_to_json_boxed(connection) {
         Ok(strval) => {

@@ -1,25 +1,60 @@
 use crate::cbztools::dbHold;
-use petgraph::graph::{Graph, NodeIndex};
+use petgraph::graph::{Graph, Node, NodeIndex};
 use petgraph::dot::{Dot, Config};
 use rusqlite::Connection;
 use std::collections::HashMap;
+use serde::Serialize;
 #[derive(Debug)]
 pub struct TreeNode {
     contents: Vec<dbHold>, //each node holds the respective files/folders at its level. We can cram the dbHold objects in there
     nodelevel: i32,
 }
 
-pub struct Holder{
+pub struct Holder{ //Holds both Hash and graph. May be unnecessary
     pub map:HashMap<String, NodeIndex>,
     pub tree:Graph<TreeNode,String>
 }
 
 
-pub fn serialize_node(){
+#[derive(Debug, Serialize)]
+pub struct FrontendNode {
+    pub id: String,            // Using filepath as unique ID
+    pub contents: Vec<dbHold>, // Files/folders in this node
+    pub level: i32,            // Depth in filesystem
+    pub children: Vec<String>, // Filepaths of child nodes
+}
 
+impl FrontendNode {
 
+    pub fn new() -> Self{
+        Self {
+            id: String::new(),
+            contents: Vec::new(),
+            level: 0,
+            children: Vec::new(),
+        }
+    }
 
+    pub fn from_graph(holder: &Holder, node_path: &str) -> Option<Self> {
+        let node_index = holder.map.get(node_path)?;
+        let node = holder.tree.node_weight(*node_index)?;
 
+        // Get paths of children
+        let children = holder.tree.neighbors(*node_index)
+            .filter_map(|child_idx| {
+                holder.map.iter()
+                    .find(|(_, &idx)| idx == child_idx)
+                    .map(|(path, _)| path.clone())
+            })
+            .collect();
+
+        Some(Self { //Return node instance to be serialized
+            id: node_path.to_string(),
+            contents: node.contents.clone(),
+            level: node.nodelevel,
+            children,
+        })
+    }
 }
 
 pub fn dump_graph(graph: Graph<TreeNode, String>) { //adding graphviz support for debug,take this out in final build
