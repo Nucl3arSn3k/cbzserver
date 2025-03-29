@@ -118,7 +118,7 @@ async fn library_send() -> HttpResponse {
     //Pass connection to treegen 
     let graph = create_graph(connection);
     
-    dump_graph(graph.tree);
+    //dump_graph(graph.tree);
 
     if graph.map.contains_key(basedir){
 
