@@ -137,7 +137,7 @@ pub fn create_graph(con: Connection) -> Holder {
 
                 pathstack.push(baseline); //Shove the baseline object to the statestack
                 println!("objects length is{:?}",objects.len());
-                for x in objects.into_iter().take(20) {
+                for x in objects.into_iter().take(20) { //Set params for graphgen here,was only going 20 deep and thought I had broken graphgen,but forgot I set this flag. This comment is to remind myself
                     //Now for a real man's node generation
                     //let pathcheck = x.filepath;
 

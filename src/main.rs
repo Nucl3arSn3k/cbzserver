@@ -8,13 +8,13 @@ use actix_web::HttpRequest;
 use actix_web::{get, http::StatusCode, post, web::Json, App, HttpResponse, HttpServer};
 use cbztools::{cHold, catalog_dir, dbconfig};
 use matchlogic::match_logic;
+use petgraph::graph::{Graph, NodeIndex};
 use rusqlite::{Connection, Result};
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json;
-use treegen::{create_graph, dump_graph, FrontendNode};
-use petgraph::graph::{Graph, NodeIndex};
 use std::path::{Path, PathBuf};
+use treegen::{create_graph, dump_graph, FrontendNode};
 mod cbztools;
 mod matchlogic;
 mod sqlitejson;
@@ -108,24 +108,46 @@ async fn library_send() -> HttpResponse {
         //Just print something,idk.
         println!("DB found")
     }
-    let connection = match Connection::open("cache.db") {
+    let connection1 = match Connection::open("cache.db") {
         Ok(conn) => conn,
         Err(e) => {
             println!("Error is {}", e);
-            return HttpResponse::InternalServerError().body(format!("Error: {}", e)); // Return early from the function with an empty Vec
+            return HttpResponse::InternalServerError().body(format!("Error: {}", e));
         }
     };
-    //Pass connection to treegen 
-    let graph = create_graph(connection);
     
-    //dump_graph(graph.tree);
+    let connection2 = match Connection::open("cache.db") {
+        Ok(conn) => conn,
+        Err(e) => {
+            println!("Error is {}", e);
+            return HttpResponse::InternalServerError().body(format!("Error: {}", e));
+        }
+    };
+    
+    let graph = create_graph(connection1);
+    let g2 = create_graph(connection2);
+    dump_graph(g2.tree);
 
-    if graph.map.contains_key(basedir){
-
+    if graph.map.contains_key(basedir) {
         let dir_index = graph.map.get(basedir).unwrap();
     }
     let nodeval = FrontendNode::from_graph(&graph, basedir);
-    /* 
+    let loc_var;
+    if let Some(t_val) = nodeval {
+        loc_var = t_val;
+    } else {
+        println!("No such option");
+        return HttpResponse::InternalServerError().body(format!("Error: finding node failed"));
+    }
+
+    //loc_var
+
+    match serde_json::to_string_pretty(&loc_var) {
+        Ok(serialized) => println!("Serialized data:\n{}", serialized),
+        Err(e) => println!("Serialization error: {}", e),
+    }
+
+    /*
     let stval = match sqlitejson::sq_to_json_boxed(connection) {
         Ok(strval) => {
             println!("{}", strval);
@@ -145,8 +167,7 @@ async fn library_send() -> HttpResponse {
     */
     //HttpResponse::Ok().json(vax)
     let stvaltmp = "test";
-    return HttpResponse::Ok().json(stvaltmp)
-        
+    return HttpResponse::Ok().json(loc_var);
 }
 
 #[post("/api/login")]
