@@ -18,3 +18,4 @@ futures = "0.3.31"
 rusqlite = { version = "0.29.0", features = ["bundled"] }
 anyhow = "1.0.96"
 petgraph = { version = "0.7.1", features = ["serde-1"] }
+image = { version = "0.25.6", features = ["webp"] }

@@ -7,6 +7,7 @@ use actix_web::http::header::ContentType;
 use actix_web::{web, HttpRequest};
 use actix_web::{get, http::StatusCode, post, web::Json, App, HttpResponse, HttpServer};
 use cbztools::{cHold, catalog_dir, dbconfig};
+use image::{ImageReader,ImageFormat,ExtendedColorType};
 use matchlogic::match_logic;
 use petgraph::graph::{Graph, NodeIndex};
 use rusqlite::{Connection, Result};
@@ -15,6 +16,7 @@ use serde::Serialize;
 use serde_json;
 use std::path::{Path, PathBuf};
 use treegen::{create_graph, dump_graph, FrontendNode};
+use image::codecs::webp::WebPEncoder;
 mod cbztools;
 mod matchlogic;
 mod sqlitejson;
@@ -204,8 +206,38 @@ async fn comic_cover(query: web::Query<CoverQuery>) -> HttpResponse {
     //Open file and convert
     let path = &query.path;
     println!("{:?}",&path);
+    let img = match ImageReader::open(&path) { //Open image as dynamic image (not parsing path yet)
+        Ok(reader) => match reader.decode() {
+            Ok(image) => image,
+            Err(err) => {
+                eprintln!("Failed to decode image: {}", err);
+                return HttpResponse::InternalServerError().body(format!("Error: {}", err));
+            }
+        },
+        Err(err) => {
+            eprintln!("Failed to open image: {}", err);
+            return HttpResponse::InternalServerError().body(format!("Error: {}", err));
+        }
+    };
+    let mut img_buf = Vec::new();
+
+    let encoder = WebPEncoder::new_lossless(&mut img_buf);
+
+    let rgba_image = img.to_rgba8();
+    
+    // Encode the image
+    if let Err(err) = encoder.encode(
+        rgba_image.as_raw(), 
+        rgba_image.width(), 
+        rgba_image.height(), 
+        ExtendedColorType::Rgba8
+    ) {
+        eprintln!("Failed to encode image to WebP: {}", err);
+        return HttpResponse::InternalServerError().body(format!("Error: {}", err));
+    }
+    
     let stvaltmp = "test";
-    return HttpResponse::Ok().json(stvaltmp);
+    return HttpResponse::Ok().content_type("image/webp").body(img_buf);
 
 }
 
