@@ -4,6 +4,7 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Header } from './components/Header.jsx';
 import { Home } from './pages/Home/index.jsx';
+import {ComicLibrary} from './pages/comiclibrary.jsx'
 import { Login } from './pages/login.jsx';
 import { NotFound } from './pages/_404.jsx';
 import './style.css';
@@ -80,6 +81,7 @@ export function App() {
                 <Header />
                 <main>
                     <Router>
+                        <Route path="/home" component={ComicLibrary} />
                         <Route path="/login" component={Login} />
                         <Route path="/" component={Home} />
                         <Route default component={NotFound} />

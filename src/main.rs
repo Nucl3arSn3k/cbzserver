@@ -4,7 +4,7 @@ use std::process::Command;
 use std::string;
 
 use actix_web::http::header::ContentType;
-use actix_web::HttpRequest;
+use actix_web::{web, HttpRequest};
 use actix_web::{get, http::StatusCode, post, web::Json, App, HttpResponse, HttpServer};
 use cbztools::{cHold, catalog_dir, dbconfig};
 use matchlogic::match_logic;
@@ -39,6 +39,11 @@ struct LoginPerms {
 #[derive(Serialize)]
 struct Library {
     series: Vec<cHold>,
+}
+
+#[derive(Deserialize)]
+struct CoverQuery {
+    path: String,
 }
 
 #[get("/api/library")]
@@ -116,17 +121,10 @@ async fn library_send() -> HttpResponse {
         }
     };
     
-    let connection2 = match Connection::open("cache.db") {
-        Ok(conn) => conn,
-        Err(e) => {
-            println!("Error is {}", e);
-            return HttpResponse::InternalServerError().body(format!("Error: {}", e));
-        }
-    };
     
     let graph = create_graph(connection1);
-    let g2 = create_graph(connection2);
-    dump_graph(g2.tree);
+    
+    //dump_graph(g2.tree);
 
     if graph.map.contains_key(basedir) {
         let dir_index = graph.map.get(basedir).unwrap();
@@ -197,6 +195,20 @@ async fn foldercheck(creds: Json<FilePath>) -> HttpResponse {
     })
 }
 
+
+
+
+#[get("/api/comic_cover")]
+async fn comic_cover(query: web::Query<CoverQuery>) -> HttpResponse {
+    // Implementation to retrieve and return the image at the requested path
+    //Open file and convert
+    let path = &query.path;
+    println!("{:?}",&path);
+    let stvaltmp = "test";
+    return HttpResponse::Ok().json(stvaltmp);
+
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!("WOW");
@@ -206,6 +218,7 @@ async fn main() -> std::io::Result<()> {
             .service(foldercheck)
             .service(logincheck)
             .service(library_send)
+            .service(comic_cover)
     })
     .bind(("127.0.0.1", 8080))?
     .run()
