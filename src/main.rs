@@ -198,7 +198,7 @@ async fn foldercheck(creds: Json<FilePath>) -> HttpResponse {
 
 
 
-#[get("/api/comic_cover")]
+#[get("/api/cover")]
 async fn comic_cover(query: web::Query<CoverQuery>) -> HttpResponse {
     // Implementation to retrieve and return the image at the requested path
     //Open file and convert
