@@ -7,6 +7,7 @@ import { Home } from './pages/Home/index.jsx';
 import {ComicLibrary} from './pages/comiclibrary.jsx'
 import { Login } from './pages/login.jsx';
 import { NotFound } from './pages/_404.jsx';
+import {ProtectedRoute} from './components/ProtectedRoutes.jsx'
 import './style.css';
 
 // Create a custom theme based on your existing CSS
@@ -81,7 +82,7 @@ export function App() {
                 <Header />
                 <main>
                     <Router>
-                        <Route path="/home" component={ComicLibrary} />
+                        <ProtectedRoute path="/home" component={ComicLibrary} />
                         <Route path="/login" component={Login} />
                         <Route path="/" component={Home} />
                         <Route default component={NotFound} />
