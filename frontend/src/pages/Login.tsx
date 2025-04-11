@@ -19,7 +19,7 @@ export function Login() {
         })
             .then(response => {
                 if (response.ok) {
-                    route('/home');
+                    route('/');
                 }
             });
     }
