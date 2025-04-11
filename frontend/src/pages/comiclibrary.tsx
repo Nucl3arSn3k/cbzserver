@@ -71,6 +71,31 @@ export function ComicLibrary() {
     fetchLibraryData(`?path=${encodeURIComponent(path)}`);
   };
 
+  const handleComicClick = (path) => {
+    // Send request to /api/files endpoint with the comic's filepath
+    try {
+      fetch(`/api/files?path=${encodeURIComponent(path)}`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          // Handle the response data as needed
+          console.log('Comic file data:', data);
+          // You could navigate to a comic viewer or open the comic in a new view
+        })
+        .catch(err => {
+          setError(err.message);
+          console.error('Error fetching comic file:', err);
+        });
+    } catch (err) {
+      setError(err.message);
+      console.error('Error handling comic click:', err);
+    }
+  };
+
   // Render breadcrumbs
   const renderBreadcrumbs = () => {
     const breadcrumbs = generateBreadcrumbs(currentPath);
@@ -144,18 +169,41 @@ export function ComicLibrary() {
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 {item.cover_path ? (
                   <CardMedia
+                    onClick={() => handleComicClick(item.filepath)}
                     component="img"
                     height="200"
                     image={`/api/cover?path=${encodeURIComponent(item.cover_path)}`}
                     alt={item.name}
-                    sx={{ objectFit: 'contain', p: 1 }}
+                    sx={{ 
+                      objectFit: 'contain', 
+                      p: 1,
+                      cursor: 'pointer',
+                      '&:hover': { opacity: 0.9 }
+                    }}
                   />
                 ) : (
-                  <Box sx={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Box 
+                    sx={{ 
+                      height: 200, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
+                    }}
+                    onClick={() => handleComicClick(item.filepath)}
+                  >
                     <Typography color="text.secondary">No Cover</Typography>
                   </Box>
                 )}
-                <CardContent sx={{ flexGrow: 1 }}>
+                <CardContent 
+                  sx={{ 
+                    flexGrow: 1,
+                    cursor: 'pointer',
+                    '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
+                  }}
+                  onClick={() => handleComicClick(item.filepath)}
+                >
                   <Typography variant="body2" noWrap title={item.name}>
                     {item.name.replace(/\.(cbr|cbz)$/i, '')}
                   </Typography>

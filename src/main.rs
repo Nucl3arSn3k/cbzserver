@@ -6,7 +6,7 @@ use std::string;
 use actix_web::http::header::ContentType;
 use actix_web::{web, HttpRequest};
 use actix_web::{get, http::StatusCode, post, web::Json, App, HttpResponse, HttpServer};
-use cbztools::{cHold, catalog_dir, dbconfig};
+use cbztools::{cHold, catalog_dir, compression_handler, dbconfig};
 use image::{ImageReader,ImageFormat,ExtendedColorType};
 use matchlogic::match_logic;
 use petgraph::graph::{Graph, NodeIndex};
@@ -198,7 +198,8 @@ async fn foldercheck(creds: Json<FilePath>) -> HttpResponse {
 }
 
 
-
+//Serves the cover
+//Serve the issues or fix cover problems?
 
 #[get("/api/cover")]
 async fn comic_cover(query: web::Query<CoverQuery>) -> HttpResponse {
@@ -239,6 +240,21 @@ async fn comic_cover(query: web::Query<CoverQuery>) -> HttpResponse {
     let stvaltmp = "test";
     return HttpResponse::Ok().content_type("image/webp").body(img_buf);
 
+}
+
+
+#[get("/api/files")]
+async fn comic_decompressed(query: web::Query<CoverQuery>) -> HttpResponse{  //Serve the first file in folder to the frontend. Decompress on backend and pass the path fr the dir back
+    let path_st = &query.path;
+    let path = Path::new(path_st);
+    if let Ok(f_path) = compression_handler(path, true).await{
+
+
+
+    } //Use compression handle
+
+    let temp = "val";
+    return HttpResponse::Ok().content_type("image/webp").body(temp);
 }
 
 #[actix_web::main]
