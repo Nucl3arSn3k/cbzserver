@@ -5,7 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Header } from './components/Header.jsx';
 import { Home } from './pages/Home/index.jsx';
 import {ComicLibrary} from './pages/comiclibrary.jsx'
-import { Login } from './pages/login.jsx';
+import { Login } from './pages/Login.jsx';
 import { NotFound } from './pages/_404.jsx';
 import './style.css';
 

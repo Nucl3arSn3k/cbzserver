@@ -139,11 +139,6 @@ pub fn create_graph(con: Connection) -> Holder {
                 println!("objects length is{:?}",objects.len());
                 for x in objects.into_iter() { //Set params for graphgen here,was only going 20 deep and thought I had broken graphgen,but forgot I set this flag. This comment is to remind myself
                     //Now for a real man's node generation
-                    //let pathcheck = x.filepath;
-
-                    //level decided by subing 1
-
-                    // Store the root level when you initialize your stack
                     let root_level = 1; // Or whatever the initial level is
                     let global_dir:dbHold;
                     // Then in your processing loop:

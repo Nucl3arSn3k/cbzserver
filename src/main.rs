@@ -244,7 +244,7 @@ async fn comic_cover(query: web::Query<CoverQuery>) -> HttpResponse {
 
 
 #[get("/api/files")]
-async fn comic_decompressed(query: web::Query<CoverQuery>) -> HttpResponse{  //Serve the first file in folder to the frontend. Decompress on backend and pass the path fr the dir back
+async fn comic_decompressed(query: web::Query<CoverQuery>) -> HttpResponse{  //Decompress the file and serve the first img in the decompressed dir to the "viewer"
     let path_st = &query.path;
     let path = Path::new(path_st);
     if let Ok(f_path) = compression_handler(path, true).await{

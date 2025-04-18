@@ -1,12 +1,17 @@
+use actix_web::web;
 use futures::future::{BoxFuture, FutureExt};
+use image::codecs::webp::WebPEncoder;
+use image::{ExtendedColorType, ImageFormat, ImageReader};
 use rusqlite::{Connection, Result};
 use serde::Serialize;
 use std::fs::{self, File, ReadDir};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{env, result};
 use tempfile::{tempdir, TempDir};
 use tokio::fs as tokfs;
 use unrar::Archive;
+use webp::*;
 use zip::read::ZipArchive;
 #[derive(Debug, Serialize, Clone)]
 pub struct cHold {
@@ -16,7 +21,7 @@ pub struct cHold {
     pub dirornot: bool, //true if dir,false if not
 }
 
-#[derive(Debug, Serialize,Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct dbHold {
     pub name: String,
     pub filepath: String,
@@ -128,7 +133,8 @@ pub fn dbconfig(path: String) -> bool {
 }
 
 //Due to the recursion, I think I need a seperate config for the DB
-pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> { //Could also generate tree here,will profile preformance later and see what's faster
+pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
+    //Could also generate tree here,will profile preformance later and see what's faster
     let mut val: Vec<cHold> = Vec::new();
 
     // Now you can use connection here
@@ -198,11 +204,20 @@ pub async fn compression_handler(
     file_path: &Path,
     full_p: bool,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let combined_folder_name = file_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .map(|name| format!("comictemp-{}", &name[..name.len() - 4]))
-        .ok_or("Invalid filename")?;
+    //Decompresses the file and puts the full version in temp. Modify this to generate a different tag for the covers and to compress the cover images
+    let combined_folder_name = if full_p == false {
+        file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|name| format!("cover-{}", &name[..name.len() - 4]))
+            .ok_or("Invalid filename")?
+    } else {
+        file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|name| format!("comictemp-{}", &name[..name.len() - 4]))
+            .ok_or("Invalid filename")?
+    };
 
     let temp_dir = get_app_data_dir();
     let temp_dir_path = temp_dir.join(&combined_folder_name);
@@ -231,10 +246,54 @@ pub async fn compression_handler(
                         if let Some(ext) = path.extension() {
                             if let Some(ext_str) = ext.to_str() {
                                 if is_image(ext_str) {
+                                    //This is the image (ext_str) convert to webp here
+                                    //let img = ImageReader::open(ext_str);
+
+                                    archive = header.extract_with_base(&temp_dir_path)?;
+                                    let v = match recursive_file_mover(
+                                        &temp_dir_path,
+                                        &temp_dir_path,
+                                    ) {
+                                        Ok(path) => path,
+                                        Err(e) => {
+                                            println!("File move error {}", e);
+                                            PathBuf::new()
+                                        }
+                                    };
+                                    let p2 = v.clone();
                                     let file_name = entry_path.split('/').last().unwrap_or("");
                                     let output_path = temp_dir_path.join(file_name);
-                                    archive = header.extract_with_base(&temp_dir_path)?;
-                                    return Ok(output_path);
+                                    println!("Image location is {:?}", v);
+                                    let op = output_path.clone();
+                                    let img = match ImageReader::open(v) {
+                                        Ok(reader) => match reader.decode() {
+                                            Ok(image) => image,
+                                            Err(err) => {
+                                                eprintln!("Failed to decode image: {}", err);
+                                                image::DynamicImage::new_rgb8(1, 1)
+                                            }
+                                        },
+                                        Err(err) => {
+                                            eprintln!("Failed to open image: {}", err);
+                                            image::DynamicImage::new_rgb8(1, 1) //return a default fail image
+                                        }
+                                    };
+
+                                    let encoder = Encoder::from_image(&img).unwrap();
+                                    let webp = encoder.encode(70.0);// Encode the image
+
+                                    
+                                    // Extract just the final filename part
+                                    let simple_filename = Path::new(file_name)
+                                        .file_name() // This gets just the filename portion, without directories
+                                        .unwrap_or_default()
+                                        .to_string_lossy();
+
+                                    // Now create the webp path with just the filename
+                                    let webp_path =
+                                        temp_dir_path.join(format!("{}.webp", simple_filename));
+                                    std::fs::write(&webp_path, &*webp).unwrap();
+                                    return Ok(op);
                                 }
                             }
                         }
@@ -292,44 +351,67 @@ pub async fn compression_handler(
     }
 }
 
-fn recursive_file_mover(folder_path: &Path, destination_folder: &Path) {
-    //Make this async
-    //if the cbz or cbr file is nested in another folder,this just grabs all the files and puts them in the newly created folder
+fn recursive_file_mover(
+    folder_path: &Path,
+    destination_folder: &Path,
+) -> Result<PathBuf, std::io::Error> {
+    // Make this async
+    // if the cbz or cbr file is nested in another folder, this just grabs all the files and puts them in the newly created folder
     if let Ok(entries) = fs::read_dir(folder_path) {
         println!("Recursive file mover triggered");
         for entry in entries {
             if let Ok(entry) = entry {
                 let entry_path = entry.path();
                 if entry_path.is_dir() {
-                    //If it's a dir,recursion happens
-                    recursive_file_mover(&entry_path, destination_folder)
+                    // If it's a dir, recursion happens
+                    if let Ok(path) = recursive_file_mover(&entry_path, destination_folder) {
+                        return Ok(path);
+                    }
                 } else {
                     let file_name = entry_path
                         .file_name()
                         .unwrap_or_default()
                         .to_string_lossy()
                         .to_string();
-                    //Slice last 3 chars for ext. If it's not (standard set of image )
+
+                    // Check if file name is long enough to get extension
+                    if file_name.len() < 3 {
+                        continue;
+                    }
+
+                    // Slice last 3 chars for ext. If it's not (standard set of image)
                     let length = file_name.len();
-                    let f_ext = &file_name[length - 3..length];
-                    //println!("{}",f_ext);
-                    if !["jpg", "jpeg", "png", "gif", "webp", "bmp"].contains(&f_ext) {
-                        //Very weird edge case where XML files are there,probably shouldn't extract them.
-                        //Will add something later for XML metadata handling
-                        continue; //skip to next loop if not a image
+                    if let Some(ext) = Path::new(&file_name).extension().and_then(|e| e.to_str()) {
+                        if !["jpg", "jpeg", "png", "gif", "webp", "bmp"]
+                            .contains(&ext.to_lowercase().as_str())
+                        {
+                            continue;
+                        }
                     }
-                    let destination_path = destination_folder.join(&file_name); //Fix XML handling
-                    if let Err(err) = fs::rename(&entry_path, &destination_path) {
-                        println!("Failed to move {:?}: {}", &entry_path, err);
-                    } else {
-                        println!("Moved {:?} to {:?}", &entry_path, &destination_path);
+                    let destination_path = destination_folder.join(&file_name); // Fix XML handling
+                    match fs::rename(&entry_path, &destination_path) {
+                        Ok(_) => {
+                            println!("Moved {:?} to {:?}", &entry_path, &destination_path);
+                            return Ok(destination_path);
+                        }
+                        Err(err) => {
+                            println!("Failed to move {:?}: {}", &entry_path, err);
+                        }
                     }
-                    //println!("Moved {:?} to {:?}", &entry_path, &destination_path);
                 }
             }
         }
-        //fs::remove_dir(folder_path);
+
+        // If we got here, no files were moved
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "No files were moved",
+        ))
     } else {
-        println!("Failed to read folder.");
+        // If we couldn't read the folder
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Failed to read folder",
+        ))
     }
 }
