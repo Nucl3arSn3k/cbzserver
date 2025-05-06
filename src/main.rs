@@ -79,8 +79,7 @@ async fn library_send() -> HttpResponse {
                 .finish();
         }
 
-        // Function continues here with the database connection...
-
+        //Opens connection to SQLite database
         let connection = match Connection::open("cache.db") {
             Ok(conn) => conn,
             Err(e) => {

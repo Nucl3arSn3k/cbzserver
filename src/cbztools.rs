@@ -1,6 +1,6 @@
 use actix_web::web;
 use futures::future::{BoxFuture, FutureExt};
-use image::codecs::webp::WebPEncoder;
+
 use image::{ExtendedColorType, ImageFormat, ImageReader};
 use rusqlite::{Connection, Result};
 use serde::Serialize;
@@ -264,7 +264,7 @@ pub async fn compression_handler(
                                     let file_name = entry_path.split('/').last().unwrap_or("");
                                     let output_path = temp_dir_path.join(file_name);
                                     println!("Image location is {:?}", v);
-                                    let op = output_path.clone();
+                                    let op = output_path.clone(); //Returns output path
                                     let img = match ImageReader::open(v) {
                                         Ok(reader) => match reader.decode() {
                                             Ok(image) => image,
@@ -280,9 +280,8 @@ pub async fn compression_handler(
                                     };
 
                                     let encoder = Encoder::from_image(&img).unwrap();
-                                    let webp = encoder.encode(70.0);// Encode the image
+                                    let webp = encoder.encode(70.0); // Encode the image
 
-                                    
                                     // Extract just the final filename part
                                     let simple_filename = Path::new(file_name)
                                         .file_name() // This gets just the filename portion, without directories
@@ -293,7 +292,38 @@ pub async fn compression_handler(
                                     let webp_path =
                                         temp_dir_path.join(format!("{}.webp", simple_filename));
                                     std::fs::write(&webp_path, &*webp).unwrap();
-                                    return Ok(op);
+                                    println!("Temp dir path is {:?}", temp_dir_path); //simply wipe any file without webp ext
+                                    if let Ok(entries) = fs::read_dir(temp_dir_path) {
+                                        //use this to iter over dir
+
+                                        for entry in entries {
+                                            if let Ok(entry) = entry {
+                                                let entry_path = entry.path();
+                                                if entry_path
+                                                    .extension()
+                                                    .map_or(true, |ext| ext != "webp")
+                                                {
+                                                    if entry_path.is_dir(){
+
+                                                        match fs::remove_dir_all(&entry_path){
+                                                            Ok(_) => println!("Successfully removed {:?}",entry_path),
+                                                            Err(e) => eprintln!("Failed to remove {:?}: {}",entry_path,e),
+                                                        }
+                                                    }
+                                                    else {
+                                                        match fs::remove_file(&entry_path){
+                                                            Ok(_) => println!("Successfully removed {:?}", entry_path),
+                                                            Err(e) => eprintln!("Failed to remove {:?}: {}",entry_path,e),
+                                                        }
+                                                        
+                                                    }
+                                                    
+                                                        
+                                                }
+                                            }
+                                        }
+                                    }
+                                    return Ok(webp_path);
                                 }
                             }
                         }
@@ -327,14 +357,62 @@ pub async fn compression_handler(
                 // Extract only first image
                 for i in 0..archive.len() {
                     let mut file = archive.by_index(i)?;
+                    //let fc = file.clone();
                     if let Some(ext) = Path::new(file.name()).extension() {
                         if let Some(ext_str) = ext.to_str() {
                             if is_image(ext_str) {
-                                let file_name = file.name().split('/').last().unwrap_or("");
+                                let file_name = file.name().split('/').last().unwrap_or("").to_string();
+                                let fv2 = file_name.clone();
                                 let output_path = temp_dir_path.join(file_name);
                                 let mut outfile = File::create(&output_path)?;
                                 std::io::copy(&mut file, &mut outfile)?;
-                                return Ok(output_path);
+                                let img = match ImageReader::open(output_path) {
+                                    Ok(reader) => match reader.decode() {
+                                        Ok(image) => image,
+                                        Err(err) => {
+                                            eprintln!("Failed to decode image: {}", err);
+                                            image::DynamicImage::new_rgb8(1, 1)
+                                        }
+                                    },
+                                    Err(err) => {
+                                        eprintln!("Failed to open image: {}", err);
+                                        image::DynamicImage::new_rgb8(1, 1) //return a default fail image
+                                    }
+                                };
+                                let encoder = Encoder::from_image(&img).unwrap();
+                                let webp = encoder.encode(70.0); // Encode the image
+
+                                // Extract just the final filename part
+                                let simple_filename = Path::new(&fv2)
+                                    .file_name() // This gets just the filename portion, without directories
+                                    .unwrap_or_default()
+                                    .to_string_lossy();
+
+                                // Now create the webp path with just the filename
+                                let webp_path =
+                                    temp_dir_path.join(format!("{}.webp", simple_filename));
+                                std::fs::write(&webp_path, &*webp).unwrap();
+                                println!("Temp dir path is {:?}", temp_dir_path); //simply wipe any file without webp ext
+                                if let Ok(entries) = fs::read_dir(temp_dir_path) {
+                                    //use this to iter over dir
+
+                                    for entry in entries {
+                                        if let Ok(entry) = entry {
+                                            let entry_path = entry.path();
+                                            if entry_path
+                                                .extension()
+                                                .map_or(true, |ext| ext != "webp")
+                                            {
+                                                match fs::remove_file(&entry_path){
+                                                    Ok(_) => println!("Successfully removed {:?}", entry_path),
+                                                    Err(e) => eprintln!("Failed to remove {:?}: {}",entry_path,e),
+                                                }
+                                                    
+                                            }
+                                        }
+                                    }
+                                }
+                                return Ok(webp_path);
                             }
                         }
                     }
