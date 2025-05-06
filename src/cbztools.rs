@@ -278,9 +278,14 @@ pub async fn compression_handler(
                                             image::DynamicImage::new_rgb8(1, 1) //return a default fail image
                                         }
                                     };
-
-                                    let encoder = Encoder::from_image(&img).unwrap();
-                                    let webp = encoder.encode(70.0); // Encode the image
+                                    let rgba_img = img.to_rgba8();
+                                    let encoderv2 = Encoder::from_rgba(
+                                        rgba_img.as_raw(),
+                                        rgba_img.width(),
+                                        rgba_img.height()
+                                    );
+                                    
+                                    let webp = encoderv2.encode(70.0); // Encode the image
 
                                     // Extract just the final filename part
                                     let simple_filename = Path::new(file_name)
