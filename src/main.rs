@@ -204,7 +204,7 @@ async fn foldercheck(creds: Json<FilePath>) -> HttpResponse {
 async fn comic_cover(query: web::Query<CoverQuery>) -> HttpResponse {
     // Implementation to retrieve and return the image at the requested path
     //Open file and convert
-    let path = &query.path;
+    let path = &query.path; //Dummy out literally everything to do with image conversion, we're handling that at scan now
     println!("{:?}",&path);
     let img = match ImageReader::open(&path) { //Open image as dynamic image (not parsing path yet)
         Ok(reader) => match reader.decode() {
