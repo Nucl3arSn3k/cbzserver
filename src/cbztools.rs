@@ -221,20 +221,20 @@ pub async fn compression_handler(
 
     let temp_dir = get_app_data_dir();
     let temp_dir_path = temp_dir.join(&combined_folder_name);
-    //fs::create_dir_all(&temp_dir_path)?;
-    tokio::fs::create_dir_all(&temp_dir_path).await?;
+    fs::create_dir_all(&temp_dir_path)?;
+
     let is_image = |ext: &str| -> bool {
         ["jpg", "jpeg", "png", "gif", "webp", "bmp"].contains(&ext.to_lowercase().as_str())
     };
 
-    let content = tokio::fs::read(file_path).await?;
+    let content = fs::read(file_path)?;
     let slice = &content[..std::cmp::min(content.len(), 7)];
 
     match slice {
         // RAR signature check
         [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00, ..]
         | [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, ..] => {
-            println!("Processing RAR file: {:?}", file_path); //Whitespace breaks files
+            println!("Processing RAR file: {:?}", file_path);
             let mut archive = Archive::new(file_path).open_for_processing()?;
 
             if !full_p {
@@ -282,9 +282,9 @@ pub async fn compression_handler(
                                     let encoderv2 = Encoder::from_rgba(
                                         rgba_img.as_raw(),
                                         rgba_img.width(),
-                                        rgba_img.height(),
+                                        rgba_img.height()
                                     );
-
+                                    
                                     let webp = encoderv2.encode(70.0); // Encode the image
 
                                     // Extract just the final filename part
@@ -296,27 +296,34 @@ pub async fn compression_handler(
                                     // Now create the webp path with just the filename
                                     let webp_path =
                                         temp_dir_path.join(format!("{}.webp", simple_filename));
-                                    tokio::fs::write(&webp_path, &*webp).await.unwrap();
+                                    std::fs::write(&webp_path, &*webp).unwrap();
                                     println!("Temp dir path is {:?}", temp_dir_path); //simply wipe any file without webp ext
-                                    let mut entries = match tokio::fs::read_dir(&temp_dir_path).await {
-                                        Ok(dir_entries) => dir_entries,
-                                        Err(e) => {
-                                            eprintln!("Failed to read directory: {}", e);
-                                            return Err(e.into());
-                                        }
-                                    };
-                                    while let Ok(Some(entry)) = entries.next_entry().await {
-                                        let entry_path = entry.path();
-                                        if entry_path.extension().map_or(true, |ext| ext != "webp") {
-                                            if tokio::fs::metadata(&entry_path).await?.is_dir() {
-                                                match tokio::fs::remove_dir_all(&entry_path).await {
-                                                    Ok(_) => println!("Successfully removed {:?}", entry_path),
-                                                    Err(e) => eprintln!("Failed to remove {:?}: {}", entry_path, e),
-                                                }
-                                            } else {
-                                                match tokio::fs::remove_file(&entry_path).await {
-                                                    Ok(_) => println!("Successfully removed {:?}", entry_path),
-                                                    Err(e) => eprintln!("Failed to remove {:?}: {}", entry_path, e),
+                                    if let Ok(entries) = fs::read_dir(temp_dir_path) {
+                                        //use this to iter over dir
+
+                                        for entry in entries {
+                                            if let Ok(entry) = entry {
+                                                let entry_path = entry.path();
+                                                if entry_path
+                                                    .extension()
+                                                    .map_or(true, |ext| ext != "webp")
+                                                {
+                                                    if entry_path.is_dir(){
+
+                                                        match fs::remove_dir_all(&entry_path){
+                                                            Ok(_) => println!("Successfully removed {:?}",entry_path),
+                                                            Err(e) => eprintln!("Failed to remove {:?}: {}",entry_path,e),
+                                                        }
+                                                    }
+                                                    else {
+                                                        match fs::remove_file(&entry_path){
+                                                            Ok(_) => println!("Successfully removed {:?}", entry_path),
+                                                            Err(e) => eprintln!("Failed to remove {:?}: {}",entry_path,e),
+                                                        }
+                                                        
+                                                    }
+                                                    
+                                                        
                                                 }
                                             }
                                         }
@@ -359,8 +366,7 @@ pub async fn compression_handler(
                     if let Some(ext) = Path::new(file.name()).extension() {
                         if let Some(ext_str) = ext.to_str() {
                             if is_image(ext_str) {
-                                let file_name =
-                                    file.name().split('/').last().unwrap_or("").to_string();
+                                let file_name = file.name().split('/').last().unwrap_or("").to_string();
                                 let fv2 = file_name.clone();
                                 let output_path = temp_dir_path.join(file_name);
                                 let mut outfile = File::create(&output_path)?;
@@ -378,13 +384,8 @@ pub async fn compression_handler(
                                         image::DynamicImage::new_rgb8(1, 1) //return a default fail image
                                     }
                                 };
-                                let rgba_img = img.to_rgba8(); //Convert to rgba to avoid incompatability
-                                let encoderv2 = Encoder::from_rgba(
-                                    rgba_img.as_raw(),
-                                    rgba_img.width(),
-                                    rgba_img.height(),
-                                );
-                                let webp = encoderv2.encode(70.0); // Encode the image
+                                let encoder = Encoder::from_image(&img).unwrap();
+                                let webp = encoder.encode(70.0); // Encode the image
 
                                 // Extract just the final filename part
                                 let simple_filename = Path::new(&fv2)
@@ -395,7 +396,7 @@ pub async fn compression_handler(
                                 // Now create the webp path with just the filename
                                 let webp_path =
                                     temp_dir_path.join(format!("{}.webp", simple_filename));
-                                tokio::fs::write(&webp_path, &*webp).await.unwrap();
+                                std::fs::write(&webp_path, &*webp).unwrap();
                                 println!("Temp dir path is {:?}", temp_dir_path); //simply wipe any file without webp ext
                                 if let Ok(entries) = fs::read_dir(temp_dir_path) {
                                     //use this to iter over dir
@@ -407,16 +408,11 @@ pub async fn compression_handler(
                                                 .extension()
                                                 .map_or(true, |ext| ext != "webp")
                                             {
-                                                match fs::remove_file(&entry_path) {
-                                                    Ok(_) => println!(
-                                                        "Successfully removed {:?}",
-                                                        entry_path
-                                                    ),
-                                                    Err(e) => eprintln!(
-                                                        "Failed to remove {:?}: {}",
-                                                        entry_path, e
-                                                    ),
+                                                match fs::remove_file(&entry_path){
+                                                    Ok(_) => println!("Successfully removed {:?}", entry_path),
+                                                    Err(e) => eprintln!("Failed to remove {:?}: {}",entry_path,e),
                                                 }
+                                                    
                                             }
                                         }
                                     }
