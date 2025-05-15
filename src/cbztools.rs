@@ -9,6 +9,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{env, result};
 use tempfile::{tempdir, TempDir};
+use tokio::sync::Semaphore;
+use std::sync::Arc;
 use tokio::fs as tokfs;
 use unrar::Archive;
 use webp::*;
@@ -136,7 +138,7 @@ pub fn dbconfig(path: String) -> bool {
 pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
     //Could also generate tree here,will profile preformance later and see what's faster
     let mut val: Vec<cHold> = Vec::new();
-
+    let semaphore = Arc::new(Semaphore::new(4));
     // Now you can use connection here
 
     let mut read_dir = match tokio::fs::read_dir(dir_path).await {
@@ -149,8 +151,9 @@ pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
     while let Ok(Some(entry)) = read_dir.next_entry().await {
         let name_string = entry.file_name().to_string_lossy().to_string();
         let path = entry.path();
-
+        let sem_clone = semaphore.clone();
         let future = async move {
+            let _permit = sem_clone.acquire().await.unwrap();
             let mut entries = Vec::new();
 
             if path.is_dir() {
@@ -227,7 +230,7 @@ pub async fn compression_handler(
         ["jpg", "jpeg", "png", "gif", "webp", "bmp"].contains(&ext.to_lowercase().as_str())
     };
 
-    let content = fs::read(file_path)?;
+    let content = tokio::fs::read(file_path).await?;
     let slice = &content[..std::cmp::min(content.len(), 7)];
 
     match slice {
@@ -296,7 +299,7 @@ pub async fn compression_handler(
                                     // Now create the webp path with just the filename
                                     let webp_path =
                                         temp_dir_path.join(format!("{}.webp", simple_filename));
-                                    std::fs::write(&webp_path, &*webp).unwrap();
+                                    std::fs::write(&webp_path, &*webp).unwrap(); //replace? Could be the call that hogs RAM?
                                     println!("Temp dir path is {:?}", temp_dir_path); //simply wipe any file without webp ext
                                     if let Ok(entries) = fs::read_dir(temp_dir_path) {
                                         //use this to iter over dir
@@ -384,8 +387,13 @@ pub async fn compression_handler(
                                         image::DynamicImage::new_rgb8(1, 1) //return a default fail image
                                     }
                                 };
-                                let encoder = Encoder::from_image(&img).unwrap();
-                                let webp = encoder.encode(70.0); // Encode the image
+                                let rgba_img = img.to_rgba8(); //Convert to rgba to avoid incompatability
+                                let encoderv2 = Encoder::from_rgba(
+                                    rgba_img.as_raw(),
+                                    rgba_img.width(),
+                                    rgba_img.height(),
+                                );
+                                let webp = encoderv2.encode(70.0); // Encode the image
 
                                 // Extract just the final filename part
                                 let simple_filename = Path::new(&fv2)
