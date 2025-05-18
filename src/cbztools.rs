@@ -60,47 +60,6 @@ fn get_app_data_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("/fallback/path"))
 }
 
-pub fn dir_lister(dir_path: &Path) -> Vec<PathBuf> {
-    let mut val: Vec<PathBuf> = Vec::new();
-    let result_read = match fs::read_dir(dir_path) {
-        Ok(entries) => entries,
-        Err(_) => return val,
-    };
-
-    for x in result_read {
-        if let Ok(entry) = x {
-            let entry_path = entry.path();
-            if entry_path.is_dir() {
-                val.push(entry_path);
-            } else {
-                continue;
-            }
-        }
-    }
-
-    val
-}
-
-pub fn delete_all(dir_path: &PathBuf) -> i32 {
-    // just going for C function conventions here,because lazy
-    let result_read = match fs::read_dir(dir_path) {
-        Ok(entries) => entries,
-        Err(_) => return -1,
-    };
-
-    for x in result_read.skip(1) {
-        let v = x.unwrap();
-
-        let x = fs::remove_file(v.path());
-
-        match x {
-            Ok(_) => println!("File removed"),
-            Err(_) => return -1,
-        }
-    }
-
-    0
-}
 pub fn dbconfig(path: String) -> bool {
     if Path::new(&path).exists() {
         println!("Cache.db exists!");
@@ -404,7 +363,7 @@ pub async fn compression_handler(
                                 // Now create the webp path with just the filename
                                 let webp_path =
                                     temp_dir_path.join(format!("{}.webp", simple_filename));
-                                std::fs::write(&webp_path, &*webp).unwrap();
+                                tokio::fs::write(&webp_path, &*webp).await.unwrap();
                                 println!("Temp dir path is {:?}", temp_dir_path); //simply wipe any file without webp ext
                                 if let Ok(entries) = fs::read_dir(temp_dir_path) {
                                     //use this to iter over dir
@@ -416,7 +375,7 @@ pub async fn compression_handler(
                                                 .extension()
                                                 .map_or(true, |ext| ext != "webp")
                                             {
-                                                match fs::remove_file(&entry_path){
+                                                match tokio::fs::remove_file(&entry_path).await{
                                                     Ok(_) => println!("Successfully removed {:?}", entry_path),
                                                     Err(e) => eprintln!("Failed to remove {:?}: {}",entry_path,e),
                                                 }
