@@ -4,10 +4,11 @@ use std::process::Command;
 use std::string;
 
 use actix_web::http::header::ContentType;
+use actix_web::{get, post, web::Json, App, HttpResponse, HttpServer};
 use actix_web::{web, HttpRequest};
-use actix_web::{get, http::StatusCode, post, web::Json, App, HttpResponse, HttpServer};
 use cbztools::{cHold, catalog_dir, compression_handler, dbconfig};
-use image::{ImageReader,ImageFormat,ExtendedColorType};
+use image::codecs::webp::WebPEncoder;
+use image::{ExtendedColorType, ImageFormat, ImageReader};
 use matchlogic::match_logic;
 use petgraph::graph::{Graph, NodeIndex};
 use rusqlite::{Connection, Result};
@@ -15,8 +16,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json;
 use std::path::{Path, PathBuf};
-use treegen::{create_graph, dump_graph, FrontendNode};
-use image::codecs::webp::WebPEncoder;
+use std::sync::{Arc, Mutex};
+use treegen::{create_graph, dump_graph, FrontendNode, Holder};
 mod cbztools;
 mod matchlogic;
 mod sqlitejson;
@@ -48,8 +49,12 @@ struct CoverQuery {
     path: String,
 }
 
+struct TreeState {
+    global_holder: Mutex<Option<Holder>>, //Hold the graph and the hash
+}
+
 #[get("/api/library")]
-async fn library_send() -> HttpResponse {
+async fn library_send(data: web::Data<TreeState>) -> HttpResponse {
     let now = std::time::Instant::now();
     let basedir = "I:\\Comics";
     let dbcon = dbconfig("cache.db".to_string());
@@ -121,10 +126,9 @@ async fn library_send() -> HttpResponse {
             return HttpResponse::InternalServerError().body(format!("Error: {}", e));
         }
     };
-    
-    
+
     let graph = create_graph(connection1);
-    
+
     //dump_graph(g2.tree);
 
     if graph.map.contains_key(basedir) {
@@ -166,6 +170,8 @@ async fn library_send() -> HttpResponse {
     */
     //HttpResponse::Ok().json(vax)
     let stvaltmp = "test";
+    let mut h_tree = data.global_holder.lock().unwrap();
+    *h_tree = Some(graph);
     return HttpResponse::Ok().json(loc_var);
 }
 
@@ -196,72 +202,67 @@ async fn foldercheck(creds: Json<FilePath>) -> HttpResponse {
     })
 }
 
-
 //Serves the cover
 //Serve the issues or fix cover problems?
 
 #[get("/api/cover")]
 async fn comic_cover(query: web::Query<CoverQuery>) -> HttpResponse {
-    // Implementation to retrieve and return the image at the requested path
-    //Open file and convert
     let path = &query.path;
-    println!("{:?}",&path);
-    let img = match ImageReader::open(&path) { //Open image as dynamic image (not parsing path yet)
-        Ok(reader) => match reader.decode() {
-            Ok(image) => image,
-            Err(err) => {
-                eprintln!("Failed to decode image: {}", err);
-                return HttpResponse::InternalServerError().body(format!("Error: {}", err));
-            }
+    println!("{:?}", &path);
+    
+    // Open the file directly and read its bytes
+    match std::fs::read(path) {
+        Ok(file_bytes) => {
+            HttpResponse::Ok()
+                .content_type("webp")
+                .body(file_bytes)
         },
         Err(err) => {
-            eprintln!("Failed to open image: {}", err);
-            return HttpResponse::InternalServerError().body(format!("Error: {}", err));
+            eprintln!("Failed to read image file: {}", err);
+            HttpResponse::InternalServerError().body(format!("Error: {}", err))
         }
-    };
-    let mut img_buf = Vec::new();
-
-    let encoder = WebPEncoder::new_lossless(&mut img_buf);
-
-    let rgba_image = img.to_rgba8();
-    
-    // Encode the image
-    if let Err(err) = encoder.encode(
-        rgba_image.as_raw(), 
-        rgba_image.width(), 
-        rgba_image.height(), 
-        ExtendedColorType::Rgba8
-    ) {
-        eprintln!("Failed to encode image to WebP: {}", err);
-        return HttpResponse::InternalServerError().body(format!("Error: {}", err));
     }
-    
-    let stvaltmp = "test";
-    return HttpResponse::Ok().content_type("image/webp").body(img_buf);
-
 }
 
-
 #[get("/api/files")]
-async fn comic_decompressed(query: web::Query<CoverQuery>) -> HttpResponse{  //Decompress the file and serve the first img in the decompressed dir to the "viewer"
+async fn comic_decompressed(query: web::Query<CoverQuery>) -> HttpResponse {
+    //Decompress the file and serve the first img in the decompressed dir to the "viewer"
     let path_st = &query.path;
     let path = Path::new(path_st);
-    if let Ok(f_path) = compression_handler(path, true).await{
-
-
-
-    } //Use compression handle
+    if let Ok(f_path) = compression_handler(path, true).await {} //Use compression handle
 
     let temp = "val";
     return HttpResponse::Ok().content_type("image/webp").body(temp);
 }
 
+#[get("/api/folders")]
+async fn file_open(query: web::Query<CoverQuery>, data: web::Data<TreeState>) -> HttpResponse {
+    //Placeholder for file swapping
+    let h_tree = data.global_holder.lock().unwrap();
+    let path = &query.path;
+    let cosref = h_tree.as_ref().unwrap(); //Just unwrap it, we should have something
+    let nodeval = FrontendNode::from_graph(cosref, path.as_str());
+    let locvar: FrontendNode;
+    match nodeval {
+        Some(actual) => locvar = actual,
+        None => {
+            return HttpResponse::InternalServerError().body(format!("Error: finding node failed"));
+        } //Cutting off the ex
+    }
+    let temp = "val";
+    return HttpResponse::Ok().json(locvar);
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!("WOW");
+    //let g_state = ;
     //test_catalog().await;
     HttpServer::new(|| {
         App::new()
+            .app_data(web::Data::new(TreeState {
+                global_holder: Mutex::new(None),
+            }))
             .service(foldercheck)
             .service(logincheck)
             .service(library_send)

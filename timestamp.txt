@@ -1,1 +1,1 @@
-Scan took 27041 seconds, which is 450 minutes and is 7 hours
+Scan took 46513 seconds, which is 775 minutes and is 12 hours

@@ -154,7 +154,7 @@ pub fn create_graph(con: Connection) -> Holder {
                         let recombined = gval.join("\\");
                         println!("Actual level is : {:?}",loclevel);
                         println!("Parent level is :{:?}",recombined); //parent node gen
-                        if graphtrack.contains_key(&recombined){ //look it up in the table
+                        if graphtrack.contains_key(&recombined){ //look up parent nodes
                             println!("recombined key found");
                             let parent_index = graphtrack.get(&recombined).unwrap();
                             let mut new_contents = Vec::new();
