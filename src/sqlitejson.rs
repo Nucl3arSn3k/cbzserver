@@ -1,8 +1,6 @@
 use crate::cbztools::dbHold;
 use rusqlite::Connection;
-use serde::{Deserialize, Serialize};
 
-use std::error::Error;
 use anyhow::Result;
 
 #[cfg(target_os = "windows")] //Will probably need to swap handling based off of different chars

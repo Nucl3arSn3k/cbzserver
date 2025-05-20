@@ -1,17 +1,13 @@
-use actix_web::web;
-use futures::future::{BoxFuture, FutureExt};
+use futures::future::FutureExt;
 
-use image::{ExtendedColorType, ImageFormat, ImageReader};
+use image::ImageReader;
 use rusqlite::{Connection, Result};
 use serde::Serialize;
-use std::fs::{self, File, ReadDir};
-use std::io::Write;
+use std::fs::{self, File};
 use std::path::{Path, PathBuf};
-use std::{env, result};
-use tempfile::{tempdir, TempDir};
+use std::env;
 use tokio::sync::Semaphore;
 use std::sync::Arc;
-use tokio::fs as tokfs;
 use unrar::Archive;
 use webp::*;
 use zip::read::ZipArchive;

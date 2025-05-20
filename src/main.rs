@@ -1,23 +1,18 @@
 use std::fs::File;
 use std::io::Write;
-use std::process::Command;
-use std::string;
 
 use actix_web::http::header::ContentType;
+use actix_web::web;
 use actix_web::{get, post, web::Json, App, HttpResponse, HttpServer};
-use actix_web::{web, HttpRequest};
 use cbztools::{cHold, catalog_dir, compression_handler, dbconfig};
-use image::codecs::webp::WebPEncoder;
-use image::{ExtendedColorType, ImageFormat, ImageReader};
 use matchlogic::match_logic;
-use petgraph::graph::{Graph, NodeIndex};
-use rusqlite::{Connection, Result};
+use rusqlite::Connection;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use treegen::{create_graph, dump_graph, FrontendNode, Holder};
+use std::path::Path;
+use std::sync::Mutex;
+use treegen::{create_graph, FrontendNode, Holder};
 mod cbztools;
 mod matchlogic;
 mod sqlitejson;
@@ -74,14 +69,15 @@ async fn library_send(data: web::Data<TreeState>) -> HttpResponse {
             h_val
         );
         println!("{}", stval);
-        if let Err(e) =
-            File::create("timestamp.txt").and_then(|mut file| file.write(stval.as_bytes()))
-        {
-            println!("Error is {}", e);
-            return HttpResponse::InternalServerError()
-                .content_type(ContentType::plaintext())
-                .insert_header(("logfile writing error", "demo"))
-                .finish();
+        match File::create("timestamp.txt").and_then(|mut file| file.write(stval.as_bytes())) {
+            Ok(_) => println!("Total time written sucessfully"),
+            Err(e) => {
+                println!("Error writing to logfile{}", e);
+                return HttpResponse::InternalServerError()
+                    .content_type(ContentType::plaintext())
+                    .insert_header(("logfile writing error", "demo"))
+                    .finish();
+            }
         }
 
         //Opens connection to SQLite database
@@ -127,52 +123,41 @@ async fn library_send(data: web::Data<TreeState>) -> HttpResponse {
         }
     };
 
-    let graph = create_graph(connection1);
-
+    let graph: Holder;
     //dump_graph(g2.tree);
 
-    if graph.map.contains_key(basedir) {
-        let dir_index = graph.map.get(basedir).unwrap();
-    }
-    let nodeval = FrontendNode::from_graph(&graph, basedir);
-    let loc_var;
-    if let Some(t_val) = nodeval {
-        loc_var = t_val;
+    // Lock the mutex to access the global graph holder
+    if let Ok(mut guard) = data.global_holder.lock() {
+        let frontend_node = if let Some(ref graph) = *guard {
+            // Use existing graph
+            FrontendNode::from_graph(graph, basedir)
+        } else {
+            // Create new graph and store it
+            println!("Creating new graph");
+            let new_graph = create_graph(connection1);
+            *guard = Some(new_graph); // Update the global holder
+            FrontendNode::from_graph(guard.as_ref().unwrap(), basedir) // Use the new graph to create frontend node
+        };
+
+        // Process the frontend node
+        match frontend_node {
+            Some(node) => {
+                // Debug output of serialized data
+                match serde_json::to_string_pretty(&node) {
+                    Ok(serialized) => println!("Serialized data:\n{}", serialized),
+                    Err(e) => println!("Serialization error: {}", e),
+                }
+                return HttpResponse::Ok().json(node);
+            }
+            None => {
+                println!("No such option");
+                return HttpResponse::InternalServerError()
+                    .body(format!("Error: finding node failed"));
+            }
+        }
     } else {
-        println!("No such option");
-        return HttpResponse::InternalServerError().body(format!("Error: finding node failed"));
+        return HttpResponse::InternalServerError().body("Failed to lock global holder mutex");
     }
-
-    //loc_var
-
-    match serde_json::to_string_pretty(&loc_var) {
-        Ok(serialized) => println!("Serialized data:\n{}", serialized),
-        Err(e) => println!("Serialization error: {}", e),
-    }
-
-    /*
-    let stval = match sqlitejson::sq_to_json_boxed(connection) {
-        Ok(strval) => {
-            println!("{}", strval);
-            strval
-        }
-        Err(e) => {
-            println!("Error is {}", e);
-            return HttpResponse::InternalServerError().body(format!("Error: {}", e));
-        }
-    };*/
-
-    /*
-    match serde_json::to_string_pretty(&vax) {
-        Ok(serialized) => println!("Serialized data:\n{}", serialized),
-        Err(e) => println!("Serialization error: {}", e),
-    }
-    */
-    //HttpResponse::Ok().json(vax)
-    let stvaltmp = "test";
-    let mut h_tree = data.global_holder.lock().unwrap();
-    *h_tree = Some(graph);
-    return HttpResponse::Ok().json(loc_var);
 }
 
 #[post("/api/login")]
@@ -209,14 +194,10 @@ async fn foldercheck(creds: Json<FilePath>) -> HttpResponse {
 async fn comic_cover(query: web::Query<CoverQuery>) -> HttpResponse {
     let path = &query.path;
     println!("{:?}", &path);
-    
+
     // Open the file directly and read its bytes
     match std::fs::read(path) {
-        Ok(file_bytes) => {
-            HttpResponse::Ok()
-                .content_type("webp")
-                .body(file_bytes)
-        },
+        Ok(file_bytes) => HttpResponse::Ok().content_type("webp").body(file_bytes),
         Err(err) => {
             eprintln!("Failed to read image file: {}", err);
             HttpResponse::InternalServerError().body(format!("Error: {}", err))

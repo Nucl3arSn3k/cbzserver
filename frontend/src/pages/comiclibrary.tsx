@@ -25,17 +25,39 @@ export function ComicLibrary() {
     setError(null);
     try {
       const response = await fetch(`/api/library${path ? `?path=${encodeURIComponent(path)}` : ''}`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       setLibraryData(data);
       setCurrentPath(data.id);
     } catch (err) {
       setError(err.message);
       console.error('Error fetching library data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchFolder = async (path = '') => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Fix the URL construction to always use the query parameter format
+      const response = await fetch(`/api/folders?path=${encodeURIComponent(path)}`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setLibraryData(data);
+      setCurrentPath(path); // Use the path we just requested instead of data.id
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching folder data:', err);
     } finally {
       setLoading(false);
     }
@@ -49,7 +71,7 @@ export function ComicLibrary() {
   // Generate breadcrumbs from path
   const generateBreadcrumbs = (path) => {
     if (!path) return [];
-    
+
     const parts = path.split('\\');
     const breadcrumbs = parts.map((part, index) => {
       const currentPath = parts.slice(0, index + 1).join('\\');
@@ -58,7 +80,7 @@ export function ComicLibrary() {
         path: currentPath
       };
     });
-    
+
     return breadcrumbs;
   };
 
@@ -68,8 +90,16 @@ export function ComicLibrary() {
   };
 
   const handleFolderClick = (path) => {
-    fetchLibraryData(`?path=${encodeURIComponent(path)}`);
-  };
+  // Make sure path is not empty before fetching
+  if (!path) {
+    console.error('Attempted to fetch with empty path');
+    setError('Cannot fetch with empty path');
+    return;
+  }
+  
+  // Now fetch the folder
+  fetchFolder(path);
+};
 
   const handleComicClick = (path) => {
     // Send request to /api/files endpoint with the comic's filepath
@@ -99,20 +129,20 @@ export function ComicLibrary() {
   // Render breadcrumbs
   const renderBreadcrumbs = () => {
     const breadcrumbs = generateBreadcrumbs(currentPath);
-    
+
     return (
       <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />}>
         {breadcrumbs.map((crumb, index) => {
           const isLast = index === breadcrumbs.length - 1;
-          
+
           return isLast ? (
             <Typography key={crumb.path} color="text.primary">
               {crumb.name}
             </Typography>
           ) : (
-            <Link 
-              key={crumb.path} 
-              href="#" 
+            <Link
+              key={crumb.path}
+              href="#"
               onClick={(e) => handleBreadcrumbClick(crumb.path, e)}
               underline="hover"
               color="inherit"
@@ -136,9 +166,9 @@ export function ComicLibrary() {
           const folderName = folderPath.split('\\').pop();
           return (
             <Grid size={{ xs: 6, sm: 4, md: 3, lg: 2 }} key={folderPath}>
-              <Card 
+              <Card
                 onClick={() => handleFolderClick(folderPath)}
-                sx={{ 
+                sx={{
                   cursor: 'pointer',
                   height: '100%',
                   display: 'flex',
@@ -158,12 +188,12 @@ export function ComicLibrary() {
             </Grid>
           );
         })}
-        
+
         {/* Render comic files */}
         {libraryData.contents && libraryData.contents.map((item) => {
           // Skip the directory itself which has dirornot = 1
           if (item.dirornot === 1) return null;
-          
+
           return (
             <Grid size={{ xs: 6, sm: 4, md: 3, lg: 2 }} key={item.filepath}>
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -174,19 +204,19 @@ export function ComicLibrary() {
                     height="200"
                     image={`/api/cover?path=${encodeURIComponent(item.cover_path)}`}
                     alt={item.name}
-                    sx={{ 
-                      objectFit: 'contain', 
+                    sx={{
+                      objectFit: 'contain',
                       p: 1,
                       cursor: 'pointer',
                       '&:hover': { opacity: 0.9 }
                     }}
                   />
                 ) : (
-                  <Box 
-                    sx={{ 
-                      height: 200, 
-                      display: 'flex', 
-                      alignItems: 'center', 
+                  <Box
+                    sx={{
+                      height: 200,
+                      display: 'flex',
+                      alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
                       '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
@@ -196,8 +226,8 @@ export function ComicLibrary() {
                     <Typography color="text.secondary">No Cover</Typography>
                   </Box>
                 )}
-                <CardContent 
-                  sx={{ 
+                <CardContent
+                  sx={{
                     flexGrow: 1,
                     cursor: 'pointer',
                     '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
@@ -219,31 +249,31 @@ export function ComicLibrary() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>Comic Library</Typography>
-      
+
       {/* Breadcrumbs */}
       <Box sx={{ mb: 3 }}>
         {currentPath && renderBreadcrumbs()}
       </Box>
-      
+
       {/* Action buttons */}
       <Box sx={{ mb: 3 }}>
-        <Button 
-          variant="contained" 
-          color="primary" 
+        <Button
+          variant="contained"
+          color="primary"
           onClick={() => fetchLibraryData()}
           disabled={loading}
         >
           Rescan Library
         </Button>
       </Box>
-      
+
       {/* Error message */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-      
+
       {/* Loading indicator */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
