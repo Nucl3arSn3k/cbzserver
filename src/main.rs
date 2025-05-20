@@ -130,6 +130,8 @@ async fn library_send(data: web::Data<TreeState>) -> HttpResponse {
     if let Ok(mut guard) = data.global_holder.lock() {
         let frontend_node = if let Some(ref graph) = *guard {
             // Use existing graph
+            println!("Graph exists!");
+            
             FrontendNode::from_graph(graph, basedir)
         } else {
             // Create new graph and store it
@@ -236,18 +238,21 @@ async fn file_open(query: web::Query<CoverQuery>, data: web::Data<TreeState>) ->
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("WOW");
-    //let g_state = ;
-    //test_catalog().await;
-    HttpServer::new(|| {
+    println!("Server starting...");
+    
+    // Create the shared state ONCE, outside the closure
+    let app_state = web::Data::new(TreeState {
+        global_holder: Mutex::new(None),
+    });
+    
+    HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(TreeState {
-                global_holder: Mutex::new(None),
-            }))
+            .app_data(app_state.clone()) // Clone the Arc, not create a new state
             .service(foldercheck)
             .service(logincheck)
             .service(library_send)
             .service(comic_cover)
+            .service(file_open) // Make sure this is registered
     })
     .bind(("127.0.0.1", 8080))?
     .run()
