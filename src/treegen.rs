@@ -1,20 +1,20 @@
 use crate::cbztools::dbHold;
+use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
-use petgraph::dot::{Dot, Config};
 use rusqlite::Connection;
-use std::collections::HashMap;
 use serde::Serialize;
+use std::collections::HashMap;
 #[derive(Debug)]
 pub struct TreeNode {
     contents: Vec<dbHold>, //each node holds the respective files/folders at its level. We can cram the dbHold objects in there
     nodelevel: i32,
 }
 
-pub struct Holder{ //Holds both Hash and graph. May be unnecessary
-    pub map:HashMap<String, NodeIndex>,
-    pub tree:Graph<TreeNode,String>
+pub struct Holder {
+    //Holds both Hash and graph. May be unnecessary
+    pub map: HashMap<String, NodeIndex>,
+    pub tree: Graph<TreeNode, String>,
 }
-
 
 #[derive(Debug, Serialize)]
 pub struct FrontendNode {
@@ -25,8 +25,7 @@ pub struct FrontendNode {
 }
 
 impl FrontendNode {
-
-    pub fn new() -> Self{
+    pub fn new() -> Self {
         Self {
             id: String::new(),
             contents: Vec::new(),
@@ -40,15 +39,20 @@ impl FrontendNode {
         let node = holder.tree.node_weight(*node_index)?;
 
         // Get paths of children
-        let children = holder.tree.neighbors(*node_index)
+        let children = holder
+            .tree
+            .neighbors(*node_index)
             .filter_map(|child_idx| {
-                holder.map.iter()
+                holder
+                    .map
+                    .iter()
                     .find(|(_, &idx)| idx == child_idx)
                     .map(|(path, _)| path.clone())
             })
             .collect();
 
-        Some(Self { //Return node instance to be serialized
+        Some(Self {
+            //Return node instance to be serialized
             id: node_path.to_string(),
             contents: node.contents.clone(),
             level: node.nodelevel,
@@ -57,20 +61,16 @@ impl FrontendNode {
     }
 }
 
-pub fn dump_graph(graph: Graph<TreeNode, String>) { //adding graphviz support for debug,take this out in final build
+pub fn dump_graph(graph: Graph<TreeNode, String>) {
+    //adding graphviz support for debug,take this out in final build
     let dot_string = format!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
 
     std::fs::write("graph.dot", dot_string).expect("Error writing file");
 
     println!("Graph dumped");
-
 }
 
-
-
 /*Generate a graph. Each node is a folder in the tree. Store files in the internal vec and connect all the nodes via edges. Depth in filesystem is tracked with stack */
-
-
 
 pub fn create_graph(con: Connection) -> Holder {
     let mut graph = Graph::<TreeNode, String>::new();
@@ -136,44 +136,42 @@ pub fn create_graph(con: Connection) -> Holder {
                 let mut pathstack: Vec<dbHold> = Vec::new();
 
                 pathstack.push(baseline); //Shove the baseline object to the statestack
-                println!("objects length is{:?}",objects.len());
-                for x in objects.into_iter() { //Set params for graphgen here,was only going 20 deep and thought I had broken graphgen,but forgot I set this flag. This comment is to remind myself
+                println!("objects length is{:?}", objects.len());
+                for x in objects.into_iter() {
+                    //Set params for graphgen here,was only going 20 deep and thought I had broken graphgen,but forgot I set this flag. This comment is to remind myself
                     //Now for a real man's node generation
-                    
+
                     // Then in your processing loop:
                     if x.dirornot == 1 {
-                        
                         // Is dir
-                        
+
                         // Calculate the current item's level
                         let loclevel = &x.filepath;
                         let mut gval: Vec<&str> = loclevel.split('\\').collect();
                         gval.pop();
                         let current_level = gval.len() - 1;
                         let recombined = gval.join("\\");
-                        println!("Actual level is : {:?}",loclevel);
-                        println!("Parent level is :{:?}",recombined); //parent node gen
-                        if graphtrack.contains_key(&recombined){ //look up parent nodes
+                        println!("Actual level is : {:?}", loclevel);
+                        println!("Parent level is :{:?}", recombined); //parent node gen
+                        if graphtrack.contains_key(&recombined) {
+                            //look up parent nodes
                             println!("recombined key found");
                             let parent_index = graphtrack.get(&recombined).unwrap();
                             let mut new_contents = Vec::new();
                             new_contents.push(x.clone());
-                            let new_node = TreeNode{
-                                contents:new_contents,
-                                nodelevel: current_level as i32
+                            let new_node = TreeNode {
+                                contents: new_contents,
+                                nodelevel: current_level as i32,
                             };
                             let new_index = graph.add_node(new_node);
                             graph.add_edge(*parent_index, new_index, "child".to_string());
                             graphtrack.insert(x.filepath, new_index);
-                            
-
                         }
-                        
 
                         // You can also use absolute_level if needed
                     } else {
                         // This is a file, add it to the current directory node
-                        /* 
+                        /*
                         if let Some(current_dir) = pathstack.last() {
 
                         }*/
@@ -184,13 +182,12 @@ pub fn create_graph(con: Connection) -> Holder {
                         let current_level = gval.len() - 1;
                         let recombined = gval.join("\\");
 
-                        println!("Actual filepath is {:?}",x.filepath);
-                        println!("Parent filepath is {:?}",recombined);
-
+                        println!("Actual filepath is {:?}", x.filepath);
+                        println!("Parent filepath is {:?}", recombined);
 
                         if graphtrack.contains_key(&recombined) {
                             let dir_index = graphtrack.get(&recombined).unwrap();
-                            
+
                             // Get a mutable reference to the node and update its contents
                             if let Some(node_weight) = graph.node_weight_mut(*dir_index) {
                                 node_weight.contents.push(x);
@@ -206,12 +203,10 @@ pub fn create_graph(con: Connection) -> Holder {
         }
     }
 
-
-    let hold_val = Holder{
+    let hold_val = Holder {
         map: graphtrack,
         tree: graph,
     };
 
     hold_val
-    
 }

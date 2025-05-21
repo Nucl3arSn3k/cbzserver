@@ -13,7 +13,7 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-
+import { ComicViewer } from '../components/comicview';
 export function ComicLibrary() {
   const [libraryData, setLibraryData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -104,22 +104,7 @@ export function ComicLibrary() {
   const handleComicClick = (path) => {
     // Send request to /api/files endpoint with the comic's filepath
     try {
-      fetch(`/api/files?path=${encodeURIComponent(path)}`)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          // Handle the response data as needed
-          console.log('Comic file data:', data);
-          // You could navigate to a comic viewer or open the comic in a new view
-        })
-        .catch(err => {
-          setError(err.message);
-          console.error('Error fetching comic file:', err);
-        });
+      ComicViewer
     } catch (err) {
       setError(err.message);
       console.error('Error handling comic click:', err);
