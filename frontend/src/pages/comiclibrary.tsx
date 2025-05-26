@@ -19,6 +19,8 @@ export function ComicLibrary() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentPath, setCurrentPath] = useState('');
+  const [viewingComic, setViewingComic] = useState(false);
+  const [selectedComicPath, setSelectedComicPath] = useState('');
 
   const fetchLibraryData = async (path = '') => {
     setLoading(true);
@@ -90,26 +92,29 @@ export function ComicLibrary() {
   };
 
   const handleFolderClick = (path) => {
-  // Make sure path is not empty before fetching
-  if (!path) {
-    console.error('Attempted to fetch with empty path');
-    setError('Cannot fetch with empty path');
-    return;
-  }
-  
-  // Now fetch the folder
-  fetchFolder(path);
-};
+    // Make sure path is not empty before fetching
+    if (!path) {
+      console.error('Attempted to fetch with empty path');
+      setError('Cannot fetch with empty path');
+      return;
+    }
+    
+    // Now fetch the folder
+    fetchFolder(path);
+  };
 
   const handleComicClick = (path) => {
     // Send request to /api/files endpoint with the comic's filepath
-    try {
-      ComicViewer
-    } catch (err) {
-      setError(err.message);
-      console.error('Error handling comic click:', err);
-    }
+    console.log('Handler fired, going to '+path)
+    setSelectedComicPath(path);
+    setViewingComic(true);
   };
+
+  const handleComicExit = () => { //handle window exit
+    console.log('Exit called')
+    setSelectedComicPath('');
+    setViewingComic(false);
+  }
 
   // Render breadcrumbs
   const renderBreadcrumbs = () => {
@@ -230,6 +235,16 @@ export function ComicLibrary() {
       </Grid>
     );
   };
+
+  // If viewing a comic, render the ComicViewer instead of the library
+  if (viewingComic) {
+    return (
+      <ComicViewer 
+        comicPath={selectedComicPath} 
+        onClose={handleComicExit}
+      />
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>

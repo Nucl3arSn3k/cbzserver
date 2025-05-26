@@ -210,6 +210,8 @@ async fn comic_cover(query: web::Query<CoverQuery>) -> HttpResponse {
 #[get("/api/files")]
 async fn comic_decompressed(query: web::Query<CoverQuery>) -> HttpResponse {
     //Decompress the file and serve the first img in the decompressed dir to the "viewer"
+    //actually may be smarter to come up with a json mapping for each file to load images? Or some sort of map? Ugh,how DOES Komga handle this
+    println!("Files called for {}",&query.path); //Just to check
     let path_st = &query.path;
     let path = Path::new(path_st);
     if let Ok(f_path) = compression_handler(path, true).await {
