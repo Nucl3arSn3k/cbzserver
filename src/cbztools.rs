@@ -3,11 +3,11 @@ use futures::future::FutureExt;
 use image::ImageReader;
 use rusqlite::{Connection, Result};
 use serde::Serialize;
+use std::env;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
-use std::env;
-use tokio::sync::Semaphore;
 use std::sync::Arc;
+use tokio::sync::Semaphore;
 use unrar::Archive;
 use webp::*;
 use zip::read::ZipArchive;
@@ -98,12 +98,20 @@ pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
 
     let mut read_dir = match tokio::fs::read_dir(dir_path).await {
         Ok(entries) => entries,
-        Err(_) => return val,
+        Err(e) => {
+            eprintln!("❌ Failed to read directory {:?}: {}", dir_path, e);
+            return val;
+        }
     };
 
     let mut futures = Vec::new();
 
-    while let Ok(Some(entry)) = read_dir.next_entry().await {
+    while let Ok(Some(entry)) = read_dir.next_entry().await.or_else(
+        |e: std::io::Error| -> Result<Option<tokio::fs::DirEntry>, std::io::Error> {
+            eprintln!("❌ Entry read failed in {:?}: {}", dir_path, e);
+            Ok(None) // Convert error to None to continue the loop
+        },
+    ) {
         let name_string = entry.file_name().to_string_lossy().to_string();
         let path = entry.path();
         let sem_clone = semaphore.clone();
@@ -118,14 +126,12 @@ pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
                     cover_path: None,
                     dirornot: true,
                 };
-                entries.push(lochold); //Here's the DB entry
-
+                entries.push(lochold);
                 let mut subdir_entries = catalog_dir(&path, depth).await;
                 entries.append(&mut subdir_entries);
             } else {
                 if let Some(extension) = path.extension().and_then(std::ffi::OsStr::to_str) {
                     match extension {
-                        //JUST CHECK THE MAGIC NUMBERS YOU MORON. "wahh, i don't want to confuse standard rar and zip files". Don't include them
                         "cbz" | "cbr" => {
                             if let Ok(cover_path) = compression_handler(&path, depth).await {
                                 let lochold = cHold {
@@ -134,18 +140,17 @@ pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
                                     cover_path: Some(cover_path),
                                     dirornot: false,
                                 };
-                                entries.push(lochold); //Here's where the DB entry should happen
+                                entries.push(lochold);
                             } else {
                                 println!("Error processing compressed file: {:?}", path);
                             }
                         }
-                        _ => {} // Unsupported extension
+                        _ => {}
                     }
                 }
             }
             entries
         };
-
         futures.push(future);
     }
 
@@ -240,9 +245,9 @@ pub async fn compression_handler(
                                     let encoderv2 = Encoder::from_rgba(
                                         rgba_img.as_raw(),
                                         rgba_img.width(),
-                                        rgba_img.height()
+                                        rgba_img.height(),
                                     );
-                                    
+
                                     let webp = encoderv2.encode(70.0); // Encode the image
 
                                     // Extract just the final filename part
@@ -266,22 +271,29 @@ pub async fn compression_handler(
                                                     .extension()
                                                     .map_or(true, |ext| ext != "webp")
                                                 {
-                                                    if entry_path.is_dir(){
-
-                                                        match fs::remove_dir_all(&entry_path){
-                                                            Ok(_) => println!("Successfully removed {:?}",entry_path),
-                                                            Err(e) => eprintln!("Failed to remove {:?}: {}",entry_path,e),
+                                                    if entry_path.is_dir() {
+                                                        match fs::remove_dir_all(&entry_path) {
+                                                            Ok(_) => println!(
+                                                                "Successfully removed {:?}",
+                                                                entry_path
+                                                            ),
+                                                            Err(e) => eprintln!(
+                                                                "Failed to remove {:?}: {}",
+                                                                entry_path, e
+                                                            ),
+                                                        }
+                                                    } else {
+                                                        match fs::remove_file(&entry_path) {
+                                                            Ok(_) => println!(
+                                                                "Successfully removed {:?}",
+                                                                entry_path
+                                                            ),
+                                                            Err(e) => eprintln!(
+                                                                "Failed to remove {:?}: {}",
+                                                                entry_path, e
+                                                            ),
                                                         }
                                                     }
-                                                    else {
-                                                        match fs::remove_file(&entry_path){
-                                                            Ok(_) => println!("Successfully removed {:?}", entry_path),
-                                                            Err(e) => eprintln!("Failed to remove {:?}: {}",entry_path,e),
-                                                        }
-                                                        
-                                                    }
-                                                    
-                                                        
                                                 }
                                             }
                                         }
@@ -324,7 +336,8 @@ pub async fn compression_handler(
                     if let Some(ext) = Path::new(file.name()).extension() {
                         if let Some(ext_str) = ext.to_str() {
                             if is_image(ext_str) {
-                                let file_name = file.name().split('/').last().unwrap_or("").to_string();
+                                let file_name =
+                                    file.name().split('/').last().unwrap_or("").to_string();
                                 let fv2 = file_name.clone();
                                 let output_path = temp_dir_path.join(file_name);
                                 let mut outfile = File::create(&output_path)?;
@@ -371,11 +384,16 @@ pub async fn compression_handler(
                                                 .extension()
                                                 .map_or(true, |ext| ext != "webp")
                                             {
-                                                match tokio::fs::remove_file(&entry_path).await{
-                                                    Ok(_) => println!("Successfully removed {:?}", entry_path),
-                                                    Err(e) => eprintln!("Failed to remove {:?}: {}",entry_path,e),
+                                                match tokio::fs::remove_file(&entry_path).await {
+                                                    Ok(_) => println!(
+                                                        "Successfully removed {:?}",
+                                                        entry_path
+                                                    ),
+                                                    Err(e) => eprintln!(
+                                                        "Failed to remove {:?}: {}",
+                                                        entry_path, e
+                                                    ),
                                                 }
-                                                    
                                             }
                                         }
                                     }
