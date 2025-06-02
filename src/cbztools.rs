@@ -55,6 +55,10 @@ fn get_app_data_dir() -> PathBuf {
         .map(|home| PathBuf::from(home).join("Library/Application Support"))
         .unwrap_or_else(|_| PathBuf::from("/fallback/path"))
 }
+/*
+Sets up the database. Filesystem details are dumped to this DB once catalog is built
+
+*/
 
 pub fn dbconfig(path: String) -> bool {
     if Path::new(&path).exists() {
@@ -89,7 +93,16 @@ pub fn dbconfig(path: String) -> bool {
     }
 }
 
-//Due to the recursion, I think I need a seperate config for the DB
+/*
+Recursive function that catalogs the files. Multithreaded.
+Depth param controls covergen or not.
+
+if function hits dir,it shoves dir details into a lochold struct pushes that to entries,then goes into that dirs contents recursively. 
+Contents of subdirs also appended to array
+
+When file is hit,check extension,then call the decompression function
+
+*/
 pub async fn catalog_dir(dir_path: &Path, depth: bool) -> Vec<cHold> {
     //Could also generate tree here,will profile preformance later and see what's faster
     let mut val: Vec<cHold> = Vec::new();
@@ -233,12 +246,12 @@ pub async fn compression_handler(
                                             Ok(image) => image,
                                             Err(err) => {
                                                 eprintln!("Failed to decode image: {}", err);
-                                                image::DynamicImage::new_rgb8(1, 1)
+                                                image::DynamicImage::new_rgb8(64, 64)
                                             }
                                         },
                                         Err(err) => {
                                             eprintln!("Failed to open image: {}", err);
-                                            image::DynamicImage::new_rgb8(1, 1) //return a default fail image
+                                            image::DynamicImage::new_rgb8(64, 64) //return a default fail image
                                         }
                                     };
                                     let rgba_img = img.to_rgba8();
@@ -261,7 +274,7 @@ pub async fn compression_handler(
                                         temp_dir_path.join(format!("{}.webp", simple_filename));
                                     std::fs::write(&webp_path, &*webp).unwrap(); //replace? Could be the call that hogs RAM?
                                     println!("Temp dir path is {:?}", temp_dir_path); //simply wipe any file without webp ext
-                                    if let Ok(entries) = fs::read_dir(temp_dir_path) {
+                                    if let Ok(entries) = fs::read_dir(temp_dir_path) { //Cleanup files
                                         //use this to iter over dir
 
                                         for entry in entries {
