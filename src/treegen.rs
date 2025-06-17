@@ -98,7 +98,7 @@ pub fn create_graph(con: Connection) -> Holder {
                     Some(x) => {
                         let mut owned_x = x.clone();
                         let new_path: Vec<&str> = owned_x.filepath.split('\\').collect();
-                        let nu_path = format!("{}\\{}", new_path[0], new_path[1]);
+                        let nu_path = format!("{}\\{}\\{}", new_path[0], new_path[1],new_path[2]); //Always goes to I\\Comics. Should reconfig (temporarily for test path)
                         println!("New path: {}", nu_path);
                         let root_name = new_path[1].to_string();
                         let passed_name = root_name.clone();

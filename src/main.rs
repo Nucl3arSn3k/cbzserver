@@ -51,13 +51,13 @@ struct TreeState {
 #[get("/api/library")]
 async fn library_send(data: web::Data<TreeState>) -> HttpResponse {
     let now = std::time::Instant::now();
-    let basedir = "I:\\Comics";
+    let basedir = "I:\\Comics\\NewMarvel"; //Swapping root dir
     let dbcon = dbconfig("cache.db".to_string());
     let mut vax = Vec::new();
 
     if dbcon == false {
         println!("Starting scan");
-        vax = catalog_dir(Path::new("I:\\Comics"), false).await; //Insert an arbiter here?
+        vax = catalog_dir(Path::new("I:\\Comics\\NewMarvel"), false).await; //Insert an arbiter here?
 
         let e_time = now.elapsed();
         let min_val = e_time.as_secs() / 60;
